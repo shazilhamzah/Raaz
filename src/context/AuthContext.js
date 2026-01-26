@@ -13,6 +13,9 @@ export const AuthProvider = ({ children }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [journalKey, setJournalKey] = useState(null);
 
+    // --- NEW STATE: Tracks if Biometrics are possible ---
+    const [hasSavedPasskey, setHasSavedPasskey] = useState(false);
+
     useEffect(() => {
         checkLoginStatus();
     }, []);
@@ -22,6 +25,11 @@ export const AuthProvider = ({ children }) => {
         try {
             let token = await AsyncStorage.getItem('userToken');
             let salt = await AsyncStorage.getItem('userSalt');
+
+            // Check if we have a saved passkey for biometrics
+            const savedKey = await SecureStore.getItemAsync('user_passkey');
+            setHasSavedPasskey(!!savedKey); // true if exists, false if null
+
             if (token) {
                 setUserToken(token);
                 setUserSalt(salt);
@@ -50,30 +58,26 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    // --- NEW: BIOMETRIC UNLOCK ---
     const unlockWithBiometrics = async () => {
         try {
-            // 1. Check if we have a saved passkey to retrieve
-            const savedPasskey = await SecureStore.getItemAsync('user_passkey');
-            if (!savedPasskey) {
-                // No key saved yet. User must type it manually once.
-                return false;
-            }
+            // 1. Check State First (Save time)
+            if (!hasSavedPasskey) return false;
 
-            // 2. Check Hardware
+            // 2. Retrieve
+            const savedPasskey = await SecureStore.getItemAsync('user_passkey');
+            if (!savedPasskey) return false;
+
             const hasHardware = await LocalAuthentication.hasHardwareAsync();
             const isEnrolled = await LocalAuthentication.isEnrolledAsync();
             if (!hasHardware || !isEnrolled) return false;
 
-            // 3. Prompt FaceID/Fingerprint
             const result = await LocalAuthentication.authenticateAsync({
                 promptMessage: 'Unlock your Journal Vault',
                 fallbackLabel: 'Enter Passkey',
             });
 
             if (result.success) {
-                // 4. Success! Unlock using the saved passkey
-                return await unlockVault(savedPasskey, false); // false = don't save again
+                return await unlockVault(savedPasskey, false);
             }
             return false;
 
@@ -83,35 +87,40 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    // --- UPDATED: UNLOCK VAULT ---
-    // We made this ASYNC so we can save to SecureStore
     const unlockVault = async (passkey, shouldSave = true) => {
         if (!userSalt) return false;
 
-        // Derive Key
         const derivedKey = CryptoService.deriveKey(passkey, userSalt);
         setJournalKey(derivedKey);
 
-        // Save to SecureStore for future FaceID usage
         if (shouldSave) {
             await SecureStore.setItemAsync('user_passkey', passkey);
+            setHasSavedPasskey(true); // <--- Update State: Biometrics now enabled!
         }
         return true;
     };
 
     const logout = async () => {
-        setUserToken(null);
-        setJournalKey(null);
-        await AsyncStorage.removeItem('userToken');
-        await AsyncStorage.removeItem('userSalt');
-        // Optional: Clear passkey on logout for extra security?
-        // await SecureStore.deleteItemAsync('user_passkey');
+        try {
+            setUserToken(null);
+            setJournalKey(null);
+            await AsyncStorage.removeItem('userToken');
+            await AsyncStorage.removeItem('userSalt');
+
+            // Clear Biometric Key
+            await SecureStore.deleteItemAsync('user_passkey');
+            setHasSavedPasskey(false); // <--- Update State: Biometrics disabled
+
+        } catch (e) {
+            console.log("Logout Error:", e);
+        }
     };
 
     return (
         <AuthContext.Provider value={{
             login, logout, unlockVault, unlockWithBiometrics,
-            isLoading, userToken, userSalt, journalKey
+            isLoading, userToken, userSalt, journalKey,
+            hasSavedPasskey // <--- Export this
         }}>
             {children}
         </AuthContext.Provider>

@@ -7,7 +7,7 @@ import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system/legacy';
 
 export default function LogsScreen() {
-    const { userToken, journalKey, unlockVault, unlockWithBiometrics } = useContext(AuthContext);
+    const { userToken, journalKey, unlockVault, unlockWithBiometrics,hasSavedPasskey } = useContext(AuthContext);
 
     const [passkeyInput, setPasskeyInput] = useState('');
     const [entries, setEntries] = useState([]);
@@ -187,9 +187,30 @@ export default function LogsScreen() {
                 <Text style={styles.lockIcon}>🔐</Text>
                 <Text style={styles.lockTitle}>Vault Locked</Text>
                 <Text style={styles.lockText}>Authenticate to view archives.</Text>
-                <Button title="Use FaceID / Fingerprint" onPress={attemptBiometric} />
+
+                {/* CONDITIONAL BUTTON */}
+                <TouchableOpacity
+                    style={[
+                        styles.bioButton,
+                        !hasSavedPasskey && styles.bioButtonDisabled // Grey out if no key
+                    ]}
+                    onPress={attemptBiometric}
+                    disabled={!hasSavedPasskey} // Disable click
+                >
+                    <Text style={{ color: 'white', fontWeight: 'bold' }}>
+                        {hasSavedPasskey ? "Use FaceID / Fingerprint" : "Biometrics Unavailable (Login Manually)"}
+                    </Text>
+                </TouchableOpacity>
+
                 <Text style={{ marginVertical: 10, color: '#ccc' }}>- OR -</Text>
-                <TextInput style={styles.input} placeholder="Enter Passkey" secureTextEntry value={passkeyInput} onChangeText={setPasskeyInput} />
+
+                <TextInput
+                    style={styles.input}
+                    placeholder="Enter Passkey Manually"
+                    secureTextEntry
+                    value={passkeyInput}
+                    onChangeText={setPasskeyInput}
+                />
                 <Button title="Unlock Vault" onPress={handleManualUnlock} />
             </View>
         );
