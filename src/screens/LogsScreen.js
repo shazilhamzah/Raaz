@@ -150,8 +150,16 @@ export default function LogsScreen() {
 
     const renderItem = ({ item }) => {
         const isExpanded = expandedId === item._id;
-        const decryptedContent = isExpanded ? CryptoService.decrypt(item.content, journalKey) : '';
-
+        let decryptedContent = '';
+        if (isExpanded && journalKey) {
+            const result = CryptoService.decrypt(item.content, journalKey);
+            // Handle both the OLD string return (just in case) and the NEW object return
+            if (typeof result === 'object' && result.text) {
+                decryptedContent = result.text;
+            } else if (typeof result === 'string') {
+                decryptedContent = result;
+            }
+        }
         // Determine Icon and Style based on Type
         const isThought = item.type === 'THOUGHT';
         const icon = isThought ? "💡" : "📖";

@@ -2,24 +2,25 @@ import React, { useState } from 'react';
 import 'react-native-get-random-values';
 import { StyleSheet, Text, View, TextInput, Button, ScrollView } from 'react-native';
 import CryptoService from '../services/CryptoService';
+import * as Crypto from 'expo-crypto'; // <--- NEW IMPORT
 
 export default function App() {
   const [passkey, setPasskey] = useState('');
   const [secretText, setSecretText] = useState('');
   const [encryptedBlob, setEncryptedBlob] = useState('');
-  
+
   const [decryptionKey, setDecryptionKey] = useState('');
   const [finalResult, setFinalResult] = useState('');
 
   // Hardcoded salt for testing (In real app, this comes from DB)
-  const TEST_SALT = "UserUniqueSalt_12345"; 
+  const TEST_SALT = "UserUniqueSalt_12345";
 
   const handleEncrypt = () => {
     if (!passkey) return alert("Enter a passkey!");
-    
+
     // 1. Generate Key
     const key = CryptoService.deriveKey(passkey, TEST_SALT);
-    
+
     // 2. Encrypt
     const blob = CryptoService.encrypt(secretText, key);
     setEncryptedBlob(blob);
@@ -44,16 +45,16 @@ export default function App() {
       {/* SECTION 1: ENCRYPT */}
       <View style={styles.card}>
         <Text style={styles.label}>1. Secret Message:</Text>
-        <TextInput 
-          style={styles.input} 
-          placeholder="My secret dream..." 
+        <TextInput
+          style={styles.input}
+          placeholder="My secret dream..."
           value={secretText}
           onChangeText={setSecretText}
         />
         <Text style={styles.label}>2. Lock it with Passkey:</Text>
-        <TextInput 
-          style={styles.input} 
-          placeholder="e.g. 1234" 
+        <TextInput
+          style={styles.input}
+          placeholder="e.g. 1234"
           value={passkey}
           onChangeText={setPasskey}
         />
@@ -71,9 +72,9 @@ export default function App() {
       {/* SECTION 3: DECRYPT */}
       <View style={styles.card}>
         <Text style={styles.label}>3. Try to Unlock (Enter WRONG key):</Text>
-        <TextInput 
-          style={styles.input} 
-          placeholder="Enter Passkey..." 
+        <TextInput
+          style={styles.input}
+          placeholder="Enter Passkey..."
           value={decryptionKey}
           onChangeText={setDecryptionKey}
         />
