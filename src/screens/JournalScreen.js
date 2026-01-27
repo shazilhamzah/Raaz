@@ -199,8 +199,31 @@ export default function JournalScreen() {
     };
 
     const handleSyncToCloud = async () => {
-        if (journalKey) performCloudUpload(journalKey);
-        else setShowSyncModal(true);
+        // 1. STRICT CHECK: Do we have the Master Key?
+        if (journalKey) {
+            performCloudUpload(journalKey);
+        } else {
+            // 2. No Key? Force User to Unlock
+            setModalMessage("Unlock Vault to Sync");
+            setShowSyncModal(true);
+        }
+    };
+
+    const emergencyLogout = async () => {
+        try {
+            await AsyncStorage.removeItem('userToken');
+            await AsyncStorage.removeItem('userSalt');
+            await AsyncStorage.removeItem('auth_canary'); // <--- The corrupted file
+            await SecureStore.deleteItemAsync('user_passkey');
+
+            // Force reload or just alert
+            Alert.alert("Reset Complete", "Please restart the app and Login again.");
+            // In a real app, you'd trigger a navigation reset here, 
+            // but for now, just manually killing the app works.
+            logout(); // Call the context logout if available
+        } catch (e) {
+            console.log(e);
+        }
     };
 
     const performCloudUpload = async (key) => {
@@ -261,15 +284,16 @@ export default function JournalScreen() {
     };
 
     const handleUnlockAndSync = async () => {
+        // 1. Attempt to unlock (Runs Canary Check inside AuthContext)
         const success = await unlockVault(passkeyInput);
+
         if (success) {
-            // Wait for useEffect to handle Stale, or manual logic to handle Sync
-            if (!staleDraft) {
-                const key = CryptoService.deriveKey(passkeyInput, userSalt);
-                performCloudUpload(key);
-            }
+            // 2. Success! We need the derived key explicitly for the upload function right now
+            const key = CryptoService.deriveKey(passkeyInput, userSalt);
+            performCloudUpload(key);
         } else {
-            Alert.alert("Error", "Wrong Passkey");
+            // 3. Failure! Wrong passkey.
+            Alert.alert("⛔ Access Denied", "Wrong Passkey. Please try again.");
         }
     };
 
@@ -304,6 +328,9 @@ export default function JournalScreen() {
                 </View>
                 <TouchableOpacity onPress={logout} style={styles.logoutBtn}>
                     <Text style={{ fontSize: 18 }}>🚪 Logout</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={emergencyLogout} style={{ backgroundColor: 'red', padding: 10, marginBottom: 10, borderRadius: 5 }}>
+                    <Text style={{ color: 'white', fontWeight: 'bold', textAlign: 'center' }}>⚠️ EMERGENCY RESET</Text>
                 </TouchableOpacity>
             </View>
 

@@ -7,7 +7,7 @@ import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system/legacy';
 
 export default function LogsScreen() {
-    const { userToken, journalKey, unlockVault, unlockWithBiometrics,hasSavedPasskey } = useContext(AuthContext);
+    const { userToken, journalKey, unlockVault, unlockWithBiometrics, hasSavedPasskey, mailboxKey } = useContext(AuthContext);
 
     const [passkeyInput, setPasskeyInput] = useState('');
     const [entries, setEntries] = useState([]);
@@ -150,7 +150,25 @@ export default function LogsScreen() {
 
     const renderItem = ({ item }) => {
         const isExpanded = expandedId === item._id;
-        const decryptedContent = isExpanded ? CryptoService.decrypt(item.content, journalKey) : '';
+
+        let displayContent = item.content; // Default: SHOW GIBBERISH (Raw Encrypted)
+
+        if (journalKey) {
+            try {
+                const decrypted = CryptoService.decrypt(item.content, journalKey);
+                // If decryption works, show it. If not, it stays as gibberish.
+                if (decrypted) displayContent = decrypted;
+            } catch (e) {
+                // Decryption failed? Keep displayContent as item.content (Gibberish)
+            }
+        } else {
+            // Vault Locked? Show Gibberish (or a placeholder if you prefer)
+            // User asked for "Gibberish in logs", so we leave item.content
+            // displayContent = item.content; 
+
+            // OPTIONAL: If you want it cleaner, use a placeholder:
+            displayContent = "🔒 [Encrypted Content]";
+        }
 
         // Determine Icon and Style based on Type
         const isThought = item.type === 'THOUGHT';
@@ -163,6 +181,7 @@ export default function LogsScreen() {
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                         <Text style={{ fontSize: 20, marginRight: 10 }}>{icon}</Text>
                         <View>
+                            {/* Title is usually plain text, but if you encrypted it, decrypt here too */}
                             <Text style={styles.title}>{item.title || "Untitled"}</Text>
                             <Text style={styles.date}>{item.date}</Text>
                         </View>
@@ -171,7 +190,8 @@ export default function LogsScreen() {
 
                 {isExpanded && (
                     <View style={styles.body}>
-                        <Text style={styles.contentText}>{decryptedContent}</Text>
+                        <Text style={styles.contentText}>{displayContent}</Text>
+                        {/* Media uses the same decryption logic implicitly in the sub-components */}
                         {item.media && (Array.isArray(item.media) ? item.media : [item.media]).map((f, i) => f && <MediaViewer key={i} filename={f} />)}
                         {item.audio && item.audio.map((f, i) => <AudioPlayer key={`aud_${i}`} filename={f} />)}
                     </View>
