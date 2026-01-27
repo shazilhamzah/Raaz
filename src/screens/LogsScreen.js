@@ -1,320 +1,434 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, TextInput, Button, Image } from 'react-native';
+import { View, Text, TextInput, Button, StyleSheet, Alert, Keyboard, TouchableOpacity, Image, ScrollView } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import { Audio } from 'expo-av';
 import { AuthContext } from '../context/AuthContext';
 import api from '../services/api';
 import CryptoService from '../services/CryptoService';
-import { Audio } from 'expo-av';
-import * as FileSystem from 'expo-file-system/legacy';
 
-export default function LogsScreen() {
-    const { userToken, journalKey, unlockVault, unlockWithBiometrics, hasSavedPasskey, mailboxKey } = useContext(AuthContext);
+export default function JournalScreen() {
+    const { userToken, journalKey, unlockVault, userSalt, unlockWithBiometrics, logout } = useContext(AuthContext);
+
+    // --- STATE ---
+    const [entryType, setEntryType] = useState('JOURNAL');
+    const [text, setText] = useState('');
+    const [thoughtTitle, setThoughtTitle] = useState('');
+    const [images, setImages] = useState([]);
+    const [voiceNotes, setVoiceNotes] = useState([]);
+
+    // NEW: EDITABLE STATE
+    const [isEditable, setIsEditable] = useState(true);
+
+    // Off-screen State
+    const [journalDraft, setJournalDraft] = useState({ text: '', images: [], voiceNotes: [] });
+    const [thoughtDraft, setThoughtDraft] = useState({ text: '', images: [], voiceNotes: [], title: '' });
+    const [staleDraft, setStaleDraft] = useState(null);
 
     const [passkeyInput, setPasskeyInput] = useState('');
-    const [entries, setEntries] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false); // <--- NEW STATE
-    const [expandedId, setExpandedId] = useState(null);
+    const [showSyncModal, setShowSyncModal] = useState(false);
+    const [modalMessage, setModalMessage] = useState(null);
+    const [recording, setRecording] = useState(null);
+    const [uploading, setUploading] = useState(false);
 
-    const [searchQuery, setSearchQuery] = useState('');
-    const [filteredEntries, setFilteredEntries] = useState([]);
+    useEffect(() => { loadInitialDraft(); }, []);
 
-    // 1. Fetch logs on mount
+    // Watcher for Stale Draft Auto-Upload
     useEffect(() => {
-        fetchLogs();
-    }, []);
-
-    // 2. Auto-trigger FaceID when locked
-    useEffect(() => {
-        if (!journalKey) {
-            attemptBiometric();
+        if (journalKey && staleDraft) {
+            uploadStaleDraft(journalKey, staleDraft);
         }
-    }, [journalKey]);
+    }, [journalKey, staleDraft]);
 
-    const attemptBiometric = async () => {
-        await unlockWithBiometrics();
-    };
-
-    const handleManualUnlock = async () => {
-        await unlockVault(passkeyInput);
-    };
-
-    // --- MAIN FETCH FUNCTION ---
-    const fetchLogs = async () => {
+    const loadInitialDraft = async () => {
         try {
-            const res = await api.get('/entries', {
-                headers: { 'x-auth-token': userToken }
-            });
-            // Sort by date (Newest first)
-            const sorted = res.data.sort((a, b) => new Date(b.date) - new Date(a.date));
-            setEntries(sorted);
-            setFilteredEntries(sorted); // <--- Initialize filtered list
+            const todayStr = new Date().toDateString();
+
+            // 1. Load Journal Data
+            const jText = await AsyncStorage.getItem('draft_journal_text');
+            const jImages = await AsyncStorage.getItem('draft_journal_images');
+            const jVoice = await AsyncStorage.getItem('draft_journal_voice');
+            const jDate = await AsyncStorage.getItem('draft_journal_date');
+
+            const parsedJImages = jImages ? JSON.parse(jImages) : [];
+            const parsedJVoice = jVoice ? JSON.parse(jVoice) : [];
+
+            // 2. LOGIC: Is it Today's or Yesterday's?
+            if (jDate && jDate !== todayStr && (jText || parsedJImages.length > 0)) {
+                // ... (Stale Draft Logic - Same as before) ...
+                console.log("Found stale draft");
+
+                // Clear input because it's stale
+                setText('');
+                setImages([]);
+                setVoiceNotes([]);
+
+                // Since it's cleared, we make it EDITABLE so user can write today's log
+                setIsEditable(true);
+
+                const staleData = {
+                    text: jText,
+                    images: parsedJImages,
+                    voiceNotes: parsedJVoice,
+                    date: jDate,
+                    type: 'JOURNAL'
+                };
+                setStaleDraft(staleData);
+                processStaleDraft(staleData);
+
+            } else {
+                // IT IS TODAY. Restore the data.
+                setText(jText || '');
+                setImages(parsedJImages);
+                setVoiceNotes(parsedJVoice);
+
+                setJournalDraft({ text: jText || '', images: parsedJImages, voiceNotes: parsedJVoice });
+
+                // --- THE FIX IS HERE ---
+                // If there is ANY content, lock the screen.
+                // If it's empty, leave it editable.
+                const hasContent = (jText && jText.trim().length > 0) || parsedJImages.length > 0 || parsedJVoice.length > 0;
+
+                if (hasContent) {
+                    setIsEditable(false); // Lock it
+                } else {
+                    setIsEditable(true); // Open for writing
+                }
+            }
+
+        } catch (e) { console.log("Load Error", e); }
+    };
+
+    const processStaleDraft = async (draft) => {
+        const success = await unlockWithBiometrics();
+        if (success) Alert.alert("🔄 Auto-Sync", `Uploading unsent entry from ${draft.date}...`);
+        else {
+            setModalMessage(`Found unsent entry from ${draft.date}. Enter Passkey to save it.`);
+            setShowSyncModal(true);
+        }
+    };
+
+    const uploadStaleDraft = async (key, draft) => {
+        if (uploading) return;
+        setUploading(true);
+        try {
+            const encryptedText = CryptoService.encrypt(draft.text || '', key);
+            // ... (Encryption logic for media skipped for brevity, assumed same as before) ...
+            // For brevity in this specific copy-paste, assuming standard upload logic
+            let encryptedImagesList = [];
+            for (const uri of draft.images) {
+                const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
+                encryptedImagesList.push(CryptoService.encrypt(base64, key));
+            }
+            let encryptedAudioList = [];
+            for (const uri of draft.voiceNotes) {
+                const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
+                encryptedAudioList.push(CryptoService.encrypt(base64, key));
+            }
+
+            const dateObj = new Date(draft.date);
+            const isoDate = dateObj.toISOString().split('T')[0];
+
+            await api.post('/entries', {
+                date: isoDate, title: "Daily Log", content: encryptedText, media: encryptedImagesList, audio: encryptedAudioList, type: 'JOURNAL'
+            }, { headers: { 'x-auth-token': userToken } });
+
+            Alert.alert("✅ Saved", `Your entry from ${draft.date} has been uploaded.`);
+            setStaleDraft(null);
+            await AsyncStorage.multiRemove(['draft_journal_text', 'draft_journal_images', 'draft_journal_voice', 'draft_journal_date']);
+            setShowSyncModal(false); setPasskeyInput(''); setModalMessage(null);
+        } catch (e) { Alert.alert("Error", "Could not upload old draft."); }
+        finally { setUploading(false); }
+    };
+
+    const switchMode = (newMode) => {
+        if (newMode === entryType) return;
+
+        // Always unlock editing when switching to a new context
+        setIsEditable(true);
+
+        if (newMode === 'THOUGHT') {
+            const currentJournalState = { text, images, voiceNotes };
+            setJournalDraft(currentJournalState);
+            saveDraftToStorage('JOURNAL', currentJournalState);
+
+            setText(thoughtDraft.text);
+            setImages(thoughtDraft.images);
+            setVoiceNotes(thoughtDraft.voiceNotes);
+            setThoughtTitle(thoughtDraft.title);
+            setEntryType('THOUGHT');
+        } else {
+            const currentThoughtState = { text, images, voiceNotes, title: thoughtTitle };
+            setThoughtDraft(currentThoughtState);
+            saveDraftToStorage('THOUGHT', currentThoughtState);
+
+            setText(journalDraft.text);
+            setImages(journalDraft.images);
+            setVoiceNotes(journalDraft.voiceNotes);
+            setEntryType('JOURNAL');
+        }
+    };
+
+    const saveDraftToStorage = async (type, data) => {
+        try {
+            const prefix = type === 'JOURNAL' ? 'draft_journal' : 'draft_thought';
+            await AsyncStorage.setItem(`${prefix}_text`, data.text);
+            await AsyncStorage.setItem(`${prefix}_images`, JSON.stringify(data.images));
+            await AsyncStorage.setItem(`${prefix}_voice`, JSON.stringify(data.voiceNotes));
+            await AsyncStorage.setItem(`${prefix}_date`, new Date().toDateString());
+            if (type === 'THOUGHT') await AsyncStorage.setItem(`${prefix}_title`, data.title || '');
+        } catch (e) { }
+    };
+
+    const handleManualSave = () => {
+        if (entryType === 'JOURNAL') {
+            const data = { text, images, voiceNotes };
+            setJournalDraft(data);
+            saveDraftToStorage('JOURNAL', data);
+        } else {
+            const data = { text, images, voiceNotes, title: thoughtTitle };
+            setThoughtDraft(data);
+            saveDraftToStorage('THOUGHT', data);
+        }
+        Alert.alert("Draft Saved", `Your ${entryType.toLowerCase()} is saved locally.`);
+        Keyboard.dismiss();
+
+        // NEW: LOCK EDITING AFTER SAVE
+        setIsEditable(false);
+    };
+
+    const handleSyncToCloud = async () => {
+        if (journalKey) performCloudUpload(journalKey);
+        else setShowSyncModal(true);
+    };
+
+    const performCloudUpload = async (key) => {
+        if (!text.trim() && images.length === 0 && voiceNotes.length === 0) return;
+        setUploading(true);
+
+        // Auto-save
+        if (entryType === 'JOURNAL') saveDraftToStorage('JOURNAL', { text, images, voiceNotes });
+        else saveDraftToStorage('THOUGHT', { text, images, voiceNotes, title: thoughtTitle });
+
+        try {
+            const today = new Date().toISOString().split('T')[0];
+            let finalTitle = "Daily Log";
+            if (entryType === 'THOUGHT') {
+                finalTitle = thoughtTitle.trim() || `Thought @ ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+            }
+
+            const encryptedText = CryptoService.encrypt(text, key);
+
+            let encryptedImagesList = [];
+            for (const uri of images) {
+                const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
+                encryptedImagesList.push(CryptoService.encrypt(base64, key));
+            }
+            let encryptedAudioList = [];
+            for (const uri of voiceNotes) {
+                const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
+                encryptedAudioList.push(CryptoService.encrypt(base64, key));
+            }
+
+            await api.post('/entries', {
+                date: today, title: finalTitle, content: encryptedText, media: encryptedImagesList, audio: encryptedAudioList, type: entryType
+            }, { headers: { 'x-auth-token': userToken } });
+
+            Alert.alert("✅ Secured", `${entryType === 'THOUGHT' ? "Thought" : "Journal"} uploaded!`);
+
+            if (entryType === 'THOUGHT') {
+                setText(''); setImages([]); setVoiceNotes([]); setThoughtTitle('');
+                setThoughtDraft({ text: '', images: [], voiceNotes: [], title: '' });
+                AsyncStorage.multiRemove(['draft_thought_text', 'draft_thought_images', 'draft_thought_voice', 'draft_thought_title', 'draft_thought_date']);
+                // Thoughts clear, so we reset to editable for the NEXT thought
+                setIsEditable(true);
+            } else {
+                setImages([]); setVoiceNotes([]);
+                setJournalDraft(prev => ({ ...prev, images: [], voiceNotes: [] }));
+                saveDraftToStorage('JOURNAL', { text, images: [], voiceNotes: [] });
+                // NEW: LOCK EDITING AFTER SYNC (JOURNAL ONLY)
+                setIsEditable(false);
+            }
+
+            setShowSyncModal(false); setPasskeyInput('');
         } catch (error) {
-            console.log("Error fetching logs", error);
+            console.log("Upload Error:", error);
+            Alert.alert("Error", "Upload failed.");
         } finally {
-            setLoading(false);
-            setRefreshing(false);
+            setUploading(false);
         }
     };
 
-    const handleSearch = (text) => {
-        setSearchQuery(text);
-
-        if (!text.trim()) {
-            setFilteredEntries(entries); // Reset if empty
-            return;
-        }
-
-        const lowerText = text.toLowerCase();
-
-        const filtered = entries.filter(item => {
-            // 1. Search Date (Plain Text)
-            if (item.date.includes(lowerText)) return true;
-
-            // 2. Search Title (Plain Text or Encrypted?)
-            // In our schema, Title is stored as Plain Text. 
-            // If you encrypted titles, you would decrypt here first.
-            if (item.title && item.title.toLowerCase().includes(lowerText)) return true;
-
-            // 3. (Optional) Search Body? 
-            // Warning: Slow for 100+ entries, but powerful.
-            // try {
-            //    const decrypted = CryptoService.decrypt(item.content, journalKey);
-            //    if (decrypted.toLowerCase().includes(lowerText)) return true;
-            // } catch(e) { return false; }
-
-            return false;
-        });
-
-        setFilteredEntries(filtered);
-    };
-
-    // --- WRAPPER FOR PULL-TO-REFRESH ---
-    const handleRefresh = () => {
-        setRefreshing(true);
-        fetchLogs();
-    };
-
-    // ... (MediaViewer Component stays the same) ...
-    const MediaViewer = ({ filename }) => {
-        const [imageUrl, setImageUrl] = useState(null);
-        const [loadingMedia, setLoadingMedia] = useState(true);
-
-        useEffect(() => { loadMedia(); }, []);
-
-        const loadMedia = async () => {
-            try {
-                const res = await api.get(`/entries/media/${filename}`, { headers: { 'x-auth-token': userToken } });
-                const decryptedBase64 = CryptoService.decrypt(res.data, journalKey);
-                setImageUrl(`data:image/jpeg;base64,${decryptedBase64}`);
-            } catch (e) { console.log("Failed to load image"); }
-            finally { setLoadingMedia(false); }
-        };
-
-        if (loadingMedia) return <ActivityIndicator color="blue" />;
-        return <Image source={{ uri: imageUrl }} style={{ width: '100%', height: 200, borderRadius: 10, marginTop: 10, resizeMode: 'cover' }} />;
-    };
-
-    // ... (AudioPlayer Component stays the same) ...
-    const AudioPlayer = ({ filename }) => {
-        const [sound, setSound] = useState();
-        const [loading, setLoading] = useState(false);
-
-        const playSound = async () => {
-            if (sound) { await sound.playAsync(); return; }
-            setLoading(true);
-            try {
-                const res = await api.get(`/entries/media/${filename}`, {
-                    headers: { 'x-auth-token': userToken },
-                    responseType: 'text' // Force text for audio
-                });
-                const cleanData = typeof res.data === 'string' ? res.data.trim() : res.data;
-                const decryptedBase64 = CryptoService.decrypt(cleanData, journalKey);
-
-                const uri = FileSystem.cacheDirectory + filename + '.m4a';
-                await FileSystem.writeAsStringAsync(uri, decryptedBase64, { encoding: 'base64' });
-
-                const { sound: newSound } = await Audio.Sound.createAsync({ uri }, { shouldPlay: true });
-                setSound(newSound);
-            } catch (e) { alert("Audio corrupted or wrong passkey"); }
-            finally { setLoading(false); }
-        };
-
-        useEffect(() => { return sound ? () => { sound.unloadAsync(); } : undefined; }, [sound]);
-
-        return (
-            <TouchableOpacity onPress={playSound} style={styles.audioButton}>
-                <Text style={{ color: 'white' }}>{loading ? "⏳ Decrypting..." : "▶️ Play Voice Note"}</Text>
-            </TouchableOpacity>
-        );
-    };
-
-    const renderItem = ({ item }) => {
-        const isExpanded = expandedId === item._id;
-
-        let displayContent = item.content; // Default: SHOW GIBBERISH (Raw Encrypted)
-
-        if (journalKey) {
-            try {
-                const decrypted = CryptoService.decrypt(item.content, journalKey);
-                // If decryption works, show it. If not, it stays as gibberish.
-                if (decrypted) displayContent = decrypted;
-            } catch (e) {
-                // Decryption failed? Keep displayContent as item.content (Gibberish)
+    const handleUnlockAndSync = async () => {
+        const success = await unlockVault(passkeyInput);
+        if (success) {
+            // Wait for useEffect to handle Stale, or manual logic to handle Sync
+            if (!staleDraft) {
+                const key = CryptoService.deriveKey(passkeyInput, userSalt);
+                performCloudUpload(key);
             }
         } else {
-            // Vault Locked? Show Gibberish (or a placeholder if you prefer)
-            // User asked for "Gibberish in logs", so we leave item.content
-            // displayContent = item.content; 
-
-            // OPTIONAL: If you want it cleaner, use a placeholder:
-            displayContent = "🔒 [Encrypted Content]";
+            Alert.alert("Error", "Wrong Passkey");
         }
-
-        // Determine Icon and Style based on Type
-        const isThought = item.type === 'THOUGHT';
-        const icon = isThought ? "💡" : "📖";
-        const cardStyle = isThought ? styles.cardThought : styles.card;
-
-        return (
-            <TouchableOpacity style={cardStyle} onPress={() => setExpandedId(isExpanded ? null : item._id)} activeOpacity={0.8}>
-                <View style={styles.cardHeader}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <Text style={{ fontSize: 20, marginRight: 10 }}>{icon}</Text>
-                        <View>
-                            {/* Title is usually plain text, but if you encrypted it, decrypt here too */}
-                            <Text style={styles.title}>{item.title || "Untitled"}</Text>
-                            <Text style={styles.date}>{item.date}</Text>
-                        </View>
-                    </View>
-                </View>
-
-                {isExpanded && (
-                    <View style={styles.body}>
-                        <Text style={styles.contentText}>{displayContent}</Text>
-                        {/* Media uses the same decryption logic implicitly in the sub-components */}
-                        {item.media && (Array.isArray(item.media) ? item.media : [item.media]).map((f, i) => f && <MediaViewer key={i} filename={f} />)}
-                        {item.audio && item.audio.map((f, i) => <AudioPlayer key={`aud_${i}`} filename={f} />)}
-                    </View>
-                )}
-            </TouchableOpacity>
-        );
     };
 
-    // --- RENDER: IF LOCKED ---
-    if (!journalKey) {
-        return (
-            <View style={styles.centerContainer}>
-                <Text style={styles.lockIcon}>🔐</Text>
-                <Text style={styles.lockTitle}>Vault Locked</Text>
-                <Text style={styles.lockText}>Authenticate to view archives.</Text>
+    // Media Helpers
+    const pickImage = async () => {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') return;
+        let result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: 'Images', allowsEditing: false, quality: 0.5 });
+        if (!result.canceled) setImages([...images, result.assets[0].uri]);
+    };
+    const startRecording = async () => {
+        try {
+            const perm = await Audio.requestPermissionsAsync();
+            if (perm.status !== 'granted') return;
+            await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+            const { recording } = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+            setRecording(recording);
+        } catch (err) { }
+    };
+    const stopRecording = async () => {
+        setRecording(undefined);
+        await recording.stopAndUnloadAsync();
+        setVoiceNotes([...voiceNotes, recording.getURI()]);
+    };
 
-                {/* CONDITIONAL BUTTON */}
-                <TouchableOpacity
-                    style={[
-                        styles.bioButton,
-                        !hasSavedPasskey && styles.bioButtonDisabled // Grey out if no key
-                    ]}
-                    onPress={attemptBiometric}
-                    disabled={!hasSavedPasskey} // Disable click
-                >
-                    <Text style={{ color: 'white', fontWeight: 'bold' }}>
-                        {hasSavedPasskey ? "Use FaceID / Fingerprint" : "Biometrics Unavailable (Login Manually)"}
-                    </Text>
-                </TouchableOpacity>
-
-                <Text style={{ marginVertical: 10, color: '#ccc' }}>- OR -</Text>
-
-                <TextInput
-                    style={styles.input}
-                    placeholder="Enter Passkey Manually"
-                    secureTextEntry
-                    value={passkeyInput}
-                    onChangeText={setPasskeyInput}
-                />
-                <Button title="Unlock Vault" onPress={handleManualUnlock} />
-            </View>
-        );
-    }
-
-    // --- RENDER: IF UNLOCKED ---
     return (
         <View style={styles.container}>
-            {/* Header with Reload Button */}
-            <View style={styles.headerRow}>
-                <Text style={styles.header}>📜 Past Chronicles</Text>
-                <TouchableOpacity onPress={handleRefresh} style={styles.reloadButton}>
-                    <Text style={{ fontSize: 24 }}>🔄</Text>
+            <View style={styles.header}>
+                <View>
+                    <Text style={styles.date}>{new Date().toDateString()}</Text>
+                    <Text style={styles.status}>{journalKey ? "🔓 Vault Open" : "📱 Local Mode"}</Text>
+                </View>
+                <TouchableOpacity onPress={logout} style={styles.logoutBtn}>
+                    <Text style={{ fontSize: 18 }}>🚪 Logout</Text>
                 </TouchableOpacity>
             </View>
 
-            <TextInput
-                style={styles.searchBar}
-                placeholder="🔍 Search by Title or Date..."
-                value={searchQuery}
-                onChangeText={handleSearch}
-            />
+            <View style={styles.toggleContainer}>
+                <TouchableOpacity style={[styles.toggleBtn, entryType === 'JOURNAL' && styles.toggleBtnActive]} onPress={() => switchMode('JOURNAL')}>
+                    <Text style={[styles.toggleText, entryType === 'JOURNAL' && styles.toggleTextActive]}>📖 Daily Log</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.toggleBtn, entryType === 'THOUGHT' && styles.toggleBtnActive]} onPress={() => switchMode('THOUGHT')}>
+                    <Text style={[styles.toggleText, entryType === 'THOUGHT' && styles.toggleTextActive]}>💡 Thought</Text>
+                </TouchableOpacity>
+            </View>
 
-            {loading ? (
-                <ActivityIndicator size="large" color="#000" />
-            ) : (
-                <FlatList
-                    data={filteredEntries}
-                    keyExtractor={item => item._id}
-                    renderItem={renderItem}
-                    contentContainerStyle={{ paddingBottom: 20 }}
-                    // NEW: Pull to Refresh props
-                    refreshing={refreshing}
-                    onRefresh={handleRefresh}
+            {entryType === 'THOUGHT' && (
+                <TextInput
+                    style={[styles.titleInput, !isEditable && styles.inputDisabled]}
+                    placeholder="Title"
+                    value={thoughtTitle}
+                    onChangeText={setThoughtTitle}
+                    editable={isEditable}
                 />
+            )}
+
+            {/* --- EDITOR CONTAINER --- */}
+            <View style={{ flex: 1 }}>
+                <TextInput
+                    style={[styles.editor, !isEditable && styles.inputDisabled]}
+                    multiline
+                    placeholder={entryType === 'JOURNAL' ? "How was your day?" : "What's on your mind?"}
+                    value={text}
+                    onChangeText={setText}
+                    textAlignVertical="top"
+                    editable={isEditable}
+                />
+
+                {/* UNLOCK BUTTON (Overlaid on top right of editor) */}
+                {!isEditable && (
+                    <TouchableOpacity style={styles.unlockBtn} onPress={() => setIsEditable(true)}>
+                        <Text style={{ fontSize: 20 }}>✏️</Text>
+                    </TouchableOpacity>
+                )}
+            </View>
+
+            {images.length > 0 && (
+                <View style={{ height: 80, marginBottom: 10 }}>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                        {images.map((uri, i) => <Image key={i} source={{ uri }} style={{ width: 80, height: 80, borderRadius: 10, marginRight: 10 }} />)}
+                    </ScrollView>
+                </View>
+            )}
+
+            {/* HIDE ACTIONS IF NOT EDITABLE (Optional? Or keep them to allow unlocking?) */}
+            {/* Let's keep them visible but disabled, or just use the boolean to disable buttons */}
+            {/* ... inside return ... */}
+
+            <View style={[styles.actionArea, !isEditable && { opacity: 1.0 }]}>
+                {/* Note: I changed opacity back to 1.0 or removed the style entirely so buttons look active */}
+
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 }}>
+                    {/* Media buttons remain locked when non-editable to prevent accidental adds */}
+                    <Button title="📸 Photo" onPress={pickImage} disabled={!isEditable} />
+                    <Button title={recording ? "⏹ Stop" : "🎤 Voice"} onPress={recording ? stopRecording : startRecording} color={recording ? "red" : "blue"} disabled={!isEditable} />
+                </View>
+
+                {voiceNotes.length > 0 && <Text style={{ marginBottom: 10, color: 'green', textAlign: 'center' }}>{voiceNotes.length} Voice Note(s) recorded</Text>}
+
+                <View style={styles.buttonRow}>
+                    {/* FIX 1: Save Draft is ALWAYS enabled (unless you want to check for empty) */}
+                    <Button
+                        title="Save Draft"
+                        onPress={handleManualSave}
+                        color="#666"
+                    // disabled prop removed so it works even when locked
+                    />
+
+                    <View style={{ width: 20 }} />
+
+                    {/* FIX 2: Sync is enabled even when locked. Only disabled while currently uploading. */}
+                    <Button
+                        title={uploading ? "Encrypting..." : `🔒 Sync ${entryType === 'THOUGHT' ? "Thought" : "Log"}`}
+                        onPress={handleSyncToCloud}
+                        disabled={uploading} // Removed !isEditable
+                        color="#8a2be2"
+                    />
+                </View>
+            </View>
+
+            {showSyncModal && (
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <Text style={{ marginBottom: 10, textAlign: 'center', fontWeight: 'bold' }}>{modalMessage || "Enter Passkey to Unlock Vault"}</Text>
+                        <TextInput style={styles.modalInput} placeholder="Passkey" secureTextEntry value={passkeyInput} onChangeText={setPasskeyInput} />
+                        <Button title="Unlock & Upload" onPress={handleUnlockAndSync} />
+                        <TouchableOpacity onPress={() => { setShowSyncModal(false); setModalMessage(null); }}>
+                            <Text style={{ color: 'red', textAlign: 'center', marginTop: 15 }}>Cancel</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
             )}
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#f4f4f4', padding: 20, paddingTop: 50 },
+    container: { flex: 1, padding: 20, paddingTop: 50, backgroundColor: '#f8f9fa' },
+    header: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
+    date: { fontSize: 18, fontWeight: 'bold' },
+    status: { fontSize: 12, color: 'blue', marginTop: 4 },
+    logoutBtn: { backgroundColor: '#ffebee', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#ffcdd2', justifyContent: 'center' },
 
-    // Header Styles
-    headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-    header: { fontSize: 28, fontWeight: 'bold', color: '#333' },
-    reloadButton: { padding: 5 },
+    toggleContainer: { flexDirection: 'row', backgroundColor: '#e0e0e0', borderRadius: 8, padding: 4, marginBottom: 10 },
+    toggleBtn: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 6 },
+    toggleBtnActive: { backgroundColor: 'white', shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 2 },
+    toggleText: { fontWeight: '600', color: '#666' },
+    toggleTextActive: { color: '#000' },
 
-    card: { backgroundColor: 'white', borderRadius: 12, marginBottom: 15, padding: 15, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
-    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    title: { fontWeight: 'bold', color: '#555' },
-    date: { color: '#888', fontStyle: 'italic' },
-    body: { marginTop: 15, borderTopWidth: 1, borderTopColor: '#eee', paddingTop: 10 },
-    contentText: { fontSize: 16, lineHeight: 24, color: '#222' },
-    centerContainer: { flex: 1, justifyContent: 'center', padding: 40, alignItems: 'center', backgroundColor: '#f4f4f4' },
-    lockIcon: { fontSize: 50, marginBottom: 20 },
-    lockTitle: { fontSize: 24, fontWeight: 'bold', marginBottom: 10 },
-    lockText: { textAlign: 'center', color: '#666', marginBottom: 20 },
-    input: { width: '100%', borderWidth: 1, borderColor: '#ccc', padding: 10, borderRadius: 8, marginBottom: 15, backgroundColor: 'white' },
-    audioButton: { backgroundColor: '#4CAF50', padding: 10, borderRadius: 5, marginTop: 5, alignItems: 'center' },
-    searchBar: {
-        backgroundColor: 'white',
-        padding: 10,
-        borderRadius: 8,
-        marginBottom: 15,
-        borderWidth: 1,
-        borderColor: '#ddd'
-    },
-    // Existing card style...
-    card: {
-        backgroundColor: 'white',
-        borderRadius: 12,
-        marginBottom: 15,
-        padding: 15,
-        // ... shadow props
-    },
-    // New Thought style (maybe slightly different color or border)
-    cardThought: {
-        backgroundColor: '#fffdf0', // Slightly yellow/cream for thoughts
-        borderRadius: 12,
-        marginBottom: 15,
-        padding: 15,
-        borderLeftWidth: 4,
-        borderLeftColor: '#FFC107', // Gold bar on left
-        shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3
-    },
+    titleInput: { backgroundColor: 'white', padding: 12, borderRadius: 8, marginBottom: 10, fontSize: 16, borderWidth: 1, borderColor: '#ddd', fontWeight: 'bold' },
+
+    editor: { flex: 1, backgroundColor: 'white', borderRadius: 10, padding: 15, fontSize: 16, marginBottom: 10, borderWidth: 1, borderColor: '#eee' },
+    inputDisabled: { backgroundColor: '#e0e0e0', color: '#555' }, // Grey out when disabled
+
+    unlockBtn: { position: 'absolute', top: 10, right: 10, backgroundColor: 'white', padding: 8, borderRadius: 20, elevation: 3, shadowColor: '#000', shadowOpacity: 0.2 },
+
+    actionArea: { marginBottom: 10 },
+    buttonRow: { flexDirection: 'row', justifyContent: 'center' },
+    modalOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+    modalContent: { backgroundColor: 'white', padding: 25, borderRadius: 15, width: '80%', elevation: 5 },
+    modalInput: { borderWidth: 1, borderColor: '#ccc', padding: 10, borderRadius: 5, marginBottom: 15 },
 });
