@@ -1,3 +1,171 @@
+// import React, { createContext, useState, useEffect } from 'react';
+// import AsyncStorage from '@react-native-async-storage/async-storage';
+// import * as SecureStore from 'expo-secure-store';
+// import * as LocalAuthentication from 'expo-local-authentication';
+// import api from '../services/api';
+// import CryptoService from '../services/CryptoService';
+
+// export const AuthContext = createContext();
+
+// export const AuthProvider = ({ children }) => {
+//     const [userToken, setUserToken] = useState(null);
+//     const [userSalt, setUserSalt] = useState(null);
+//     const [journalKey, setJournalKey] = useState(null);
+//     const [hasSavedPasskey, setHasSavedPasskey] = useState(false);
+//     const [isVaultInitialized, setIsVaultInitialized] = useState(false);
+//     const [isLoading, setIsLoading] = useState(false);
+
+//     useEffect(() => { checkLoginStatus(); }, []);
+
+//     const checkLoginStatus = async () => {
+//         setIsLoading(true);
+//         try {
+//             const token = await AsyncStorage.getItem('userToken');
+//             const salt = await AsyncStorage.getItem('userSalt');
+//             const savedPasskey = await SecureStore.getItemAsync('user_passkey');
+
+//             // Check if we have the canary locally
+//             const canary = await AsyncStorage.getItem('auth_canary');
+
+//             setHasSavedPasskey(!!savedPasskey);
+//             setIsVaultInitialized(!!canary);
+
+//             if (token) {
+//                 setUserToken(token);
+//                 setUserSalt(salt);
+//             }
+//         } catch (e) { console.log("Init Error:", e); }
+//         setIsLoading(false);
+//     };
+
+//     const login = async (email, password) => {
+//         setIsLoading(true);
+//         try {
+//             const cleanPassword = password.trim();
+//             const res = await api.post('/auth/login', { email, password: cleanPassword });
+
+//             // BACKEND NOW SENDS 'canary' IF IT EXISTS
+//             const { token, encryption_salt, canary } = res.data;
+
+//             // SAVE EVERYTHING
+//             setUserToken(token);
+//             setUserSalt(encryption_salt);
+//             await AsyncStorage.setItem('userToken', token);
+//             await AsyncStorage.setItem('userSalt', encryption_salt);
+
+//             if (canary) {
+//                 // RESTORE FLOW: User has a vault on server. Save it locally.
+//                 await AsyncStorage.setItem('auth_canary', canary);
+//                 setIsVaultInitialized(true);
+//                 console.log("📥 Vault Lock Downloaded from Cloud");
+//             } else {
+//                 // NEW USER FLOW: No vault yet.
+//                 setIsVaultInitialized(false);
+//             }
+
+//         } catch (e) {
+//             alert("Login Failed");
+//         } finally {
+//             setIsLoading(false);
+//         }
+//     };
+
+//     // --- SETUP VAULT (Uploads to Cloud) ---
+//     const setupVault = async (newPasskey) => {
+//         try {
+//             if (!userSalt) return false;
+//             const clean = newPasskey.trim();
+
+//             const derivedKeyHex = CryptoService.deriveKey(clean, userSalt);
+//             const canary = CryptoService.encrypt("VALID", derivedKeyHex);
+
+//             // 1. Save Locally
+//             await AsyncStorage.setItem('auth_canary', canary);
+
+//             // 2. Sync to Backend (CRITICAL FOR RESTORE)
+//             await api.post('/auth/canary', { canary }, {
+//                 headers: { 'x-auth-token': userToken }
+//             });
+
+//             setJournalKey(derivedKeyHex);
+//             setIsVaultInitialized(true);
+//             console.log("☁️ Vault Setup Synced to Cloud!");
+//             return true;
+//         } catch (e) {
+//             console.log(e);
+//             return false;
+//         }
+//     };
+
+//     const unlockVault = async (passkey, shouldSave = true) => {
+//         try {
+//             const cleanPasskey = passkey.trim();
+//             const currentSalt = await AsyncStorage.getItem('userSalt');
+//             if (!currentSalt) return false;
+
+//             const derivedKeyHex = CryptoService.deriveKey(cleanPasskey, currentSalt);
+//             const storedCanary = await AsyncStorage.getItem('auth_canary');
+
+//             if (!storedCanary) return false;
+
+//             const check = CryptoService.decrypt(storedCanary, derivedKeyHex);
+//             const checkText = (typeof check === 'object' && check.text) ? check.text : check;
+
+//             if (checkText !== "VALID") return false;
+
+//             setJournalKey(derivedKeyHex);
+
+//             if (shouldSave) {
+//                 await SecureStore.setItemAsync('user_passkey', cleanPasskey);
+//                 setHasSavedPasskey(true);
+//             }
+//             return derivedKeyHex;
+
+//         } catch (e) { return false; }
+//     };
+
+//     // ... (unlockWithBiometrics and logout remain the same)
+//     // Just ensure logout clears 'auth_canary' from local storage so next login fetches fresh.
+//     const logout = async () => {
+//         try {
+//             setUserToken(null);
+//             setJournalKey(null);
+//             await AsyncStorage.multiRemove(['userToken', 'userSalt', 'auth_canary']);
+//             await SecureStore.deleteItemAsync('user_passkey');
+//             setHasSavedPasskey(false);
+//             setIsVaultInitialized(false);
+//         } catch (e) { console.log("Logout Error:", e); }
+//     };
+
+//     // ... (unlockWithBiometrics implementation from previous turns)
+//     const unlockWithBiometrics = async () => {
+//         try {
+//             if (!hasSavedPasskey) return false;
+//             const savedPasskey = await SecureStore.getItemAsync('user_passkey');
+//             if (!savedPasskey) return false;
+//             const hasHardware = await LocalAuthentication.hasHardwareAsync();
+//             const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+//             if (!hasHardware || !isEnrolled) return false;
+//             const result = await LocalAuthentication.authenticateAsync({
+//                 promptMessage: 'Unlock Vault',
+//                 fallbackLabel: 'Enter Passkey',
+//             });
+//             if (result.success) return await unlockVault(savedPasskey, false);
+//             return false;
+//         } catch (e) { return false; }
+//     };
+
+//     return (
+//         <AuthContext.Provider value={{
+//             login, logout, unlockVault, unlockWithBiometrics, setupVault,
+//             isLoading, userToken, userSalt, journalKey, hasSavedPasskey, isVaultInitialized
+//         }}>
+//             {children}
+//         </AuthContext.Provider>
+//     );
+// };
+
+
 import React, { createContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
@@ -23,8 +191,6 @@ export const AuthProvider = ({ children }) => {
             const token = await AsyncStorage.getItem('userToken');
             const salt = await AsyncStorage.getItem('userSalt');
             const savedPasskey = await SecureStore.getItemAsync('user_passkey');
-
-            // Check if we have the canary locally
             const canary = await AsyncStorage.getItem('auth_canary');
 
             setHasSavedPasskey(!!savedPasskey);
@@ -43,23 +209,17 @@ export const AuthProvider = ({ children }) => {
         try {
             const cleanPassword = password.trim();
             const res = await api.post('/auth/login', { email, password: cleanPassword });
-
-            // BACKEND NOW SENDS 'canary' IF IT EXISTS
             const { token, encryption_salt, canary } = res.data;
 
-            // SAVE EVERYTHING
             setUserToken(token);
             setUserSalt(encryption_salt);
             await AsyncStorage.setItem('userToken', token);
             await AsyncStorage.setItem('userSalt', encryption_salt);
 
             if (canary) {
-                // RESTORE FLOW: User has a vault on server. Save it locally.
                 await AsyncStorage.setItem('auth_canary', canary);
                 setIsVaultInitialized(true);
-                console.log("📥 Vault Lock Downloaded from Cloud");
             } else {
-                // NEW USER FLOW: No vault yet.
                 setIsVaultInitialized(false);
             }
 
@@ -70,7 +230,6 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    // --- SETUP VAULT (Uploads to Cloud) ---
     const setupVault = async (newPasskey) => {
         try {
             if (!userSalt) return false;
@@ -79,22 +238,15 @@ export const AuthProvider = ({ children }) => {
             const derivedKeyHex = CryptoService.deriveKey(clean, userSalt);
             const canary = CryptoService.encrypt("VALID", derivedKeyHex);
 
-            // 1. Save Locally
             await AsyncStorage.setItem('auth_canary', canary);
-
-            // 2. Sync to Backend (CRITICAL FOR RESTORE)
             await api.post('/auth/canary', { canary }, {
                 headers: { 'x-auth-token': userToken }
             });
 
             setJournalKey(derivedKeyHex);
             setIsVaultInitialized(true);
-            console.log("☁️ Vault Setup Synced to Cloud!");
             return true;
-        } catch (e) {
-            console.log(e);
-            return false;
-        }
+        } catch (e) { return false; }
     };
 
     const unlockVault = async (passkey, shouldSave = true) => {
@@ -113,7 +265,7 @@ export const AuthProvider = ({ children }) => {
 
             if (checkText !== "VALID") return false;
 
-            setJournalKey(derivedKeyHex);
+            setJournalKey(derivedKeyHex); // GLOBAL STATE SET (Only if valid)
 
             if (shouldSave) {
                 await SecureStore.setItemAsync('user_passkey', cleanPasskey);
@@ -124,20 +276,13 @@ export const AuthProvider = ({ children }) => {
         } catch (e) { return false; }
     };
 
-    // ... (unlockWithBiometrics and logout remain the same)
-    // Just ensure logout clears 'auth_canary' from local storage so next login fetches fresh.
-    const logout = async () => {
-        try {
-            setUserToken(null);
-            setJournalKey(null);
-            await AsyncStorage.multiRemove(['userToken', 'userSalt', 'auth_canary']);
-            await SecureStore.deleteItemAsync('user_passkey');
-            setHasSavedPasskey(false);
-            setIsVaultInitialized(false);
-        } catch (e) { console.log("Logout Error:", e); }
+    // --- NEW: GET RAW KEY (For Logs "Garbage View") ---
+    const getRawKey = (passkey) => {
+        if (!userSalt) return null;
+        // Just derive it. Don't check validity. Don't set global state.
+        return CryptoService.deriveKey(passkey.trim(), userSalt);
     };
 
-    // ... (unlockWithBiometrics implementation from previous turns)
     const unlockWithBiometrics = async () => {
         try {
             if (!hasSavedPasskey) return false;
@@ -155,9 +300,20 @@ export const AuthProvider = ({ children }) => {
         } catch (e) { return false; }
     };
 
+    const logout = async () => {
+        try {
+            setUserToken(null);
+            setJournalKey(null);
+            await AsyncStorage.multiRemove(['userToken', 'userSalt', 'auth_canary']);
+            await SecureStore.deleteItemAsync('user_passkey');
+            setHasSavedPasskey(false);
+            setIsVaultInitialized(false);
+        } catch (e) { console.log("Logout Error:", e); }
+    };
+
     return (
         <AuthContext.Provider value={{
-            login, logout, unlockVault, unlockWithBiometrics, setupVault,
+            login, logout, unlockVault, unlockWithBiometrics, setupVault, getRawKey, // <--- Exported
             isLoading, userToken, userSalt, journalKey, hasSavedPasskey, isVaultInitialized
         }}>
             {children}

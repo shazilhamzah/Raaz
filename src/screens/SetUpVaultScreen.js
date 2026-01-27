@@ -64,7 +64,7 @@ export default function SetupVaultScreen({ navigation }) {
                         placeholder="e.g. 1111"
                         placeholderTextColor="#aaa"
                         secureTextEntry
-                        keyboardType="numeric" // Or 'default' for alphanumeric
+                        keyboardType="default" // Or 'default' for alphanumeric
                         value={passkey}
                         onChangeText={setPasskey}
                         maxLength={6}
