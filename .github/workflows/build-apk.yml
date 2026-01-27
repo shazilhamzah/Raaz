@@ -30,17 +30,17 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
-      # 1. Generate a Temporary Keystore (Required for Release Builds)
-      # We create a disposable key just to sign the app so Android lets us install it.
+      # 1. Generate Keystore (FIXED: Deletes old file first)
       - name: Generate Keystore
         run: |
           cd android/app
+          rm -f debug.keystore
           keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
 
       - name: Make Gradlew Executable
         run: cd android && chmod +x gradlew
 
-      # 2. Build Release APK (Injecting the temporary key details)
+      # 2. Build Release APK
       - name: Build Release APK
         run: |
           cd android
