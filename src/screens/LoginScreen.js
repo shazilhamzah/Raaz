@@ -10,13 +10,26 @@ export default function LoginScreen() {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const { login, isLoading } = useContext(AuthContext);
+  const { login, register, isLoading } = useContext(AuthContext);
 
   const handleAction = () => {
+    if (!email.trim() || !password.trim()) {
+      alert("Please enter email and password");
+      return;
+    }
+
     if (isLogin) {
       login(email, password);
     } else {
-      alert("Signup Backend Not Implemented Yet");
+      if (password !== confirmPassword) {
+        alert("Passwords do not match");
+        return;
+      }
+      if (password.length < 6) {
+        alert("Password must be at least 6 characters");
+        return;
+      }
+      register(email, password);
     }
   };
 

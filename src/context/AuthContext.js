@@ -64,6 +64,31 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    const register = async (email, password) => {
+        setIsLoading(true);
+        try {
+            const cleanPassword = password.trim();
+            const res = await api.post('/auth/register', { email, password: cleanPassword });
+            const { token, encryption_salt } = res.data;
+
+            setUserToken(token);
+            setUserSalt(encryption_salt);
+            await AsyncStorage.setItem('userToken', token);
+            await AsyncStorage.setItem('userSalt', encryption_salt);
+
+            // New users won't have a canary yet - they need to set up vault
+            setIsVaultInitialized(false);
+
+            alert("Account created successfully! Please set up your vault passkey.");
+        } catch (e) {
+            console.error("Register Error Details:", e);
+            const msg = e.response?.data?.msg || e.message || "Registration Failed";
+            alert(`Registration Error: ${msg}`);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const setupVault = async (newPasskey) => {
         try {
             if (!userSalt) return false;
@@ -147,7 +172,7 @@ export const AuthProvider = ({ children }) => {
 
     return (
         <AuthContext.Provider value={{
-            login, logout, unlockVault, unlockWithBiometrics, setupVault, getRawKey, // <--- Exported
+            login, register, logout, unlockVault, unlockWithBiometrics, setupVault, getRawKey,
             isLoading, userToken, userSalt, journalKey, hasSavedPasskey, isVaultInitialized
         }}>
             {children}
