@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, Alert, Keyboard, TouchableOpacity, Image, ScrollView } from 'react-native';
+import { View, Text, TextInput, Button, Alert, Keyboard, TouchableOpacity, Image, ScrollView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -276,72 +276,109 @@ export default function JournalScreen() {
     };
 
     return (
-        <View style={styles.container}>
-            <View style={styles.header}>
+        <View className="flex-1 p-5 pt-12 bg-primary">
+            <View className="flex-row justify-between mb-6">
                 <View>
-                    <Text style={styles.date}>{new Date().toDateString()}</Text>
-                    <Text style={styles.status}>{journalKey ? "🔓 Vault Open" : "📱 Local Mode"}</Text>
+                    <Text className="text-xl font-matanya text-white">{new Date().toDateString()}</Text>
+                    <Text className="text-xs text-highlight mt-1">{journalKey ? "🔓 Vault Open" : "📱 Local Mode"}</Text>
                 </View>
-                <TouchableOpacity onPress={logout} style={styles.logoutBtn}>
-                    <Text style={{ fontSize: 18 }}>🚪 Logout</Text>
+                <TouchableOpacity onPress={logout} className="bg-secondary px-4 py-2 rounded-full border border-accent/30 justify-center">
+                    <Text className="text-sm text-highlight font-bold">🚪 Logout</Text>
                 </TouchableOpacity>
             </View>
 
-            <View style={styles.toggleContainer}>
-                <TouchableOpacity style={[styles.toggleBtn, entryType === 'JOURNAL' && styles.toggleBtnActive]} onPress={() => switchMode('JOURNAL')}>
-                    <Text style={[styles.toggleText, entryType === 'JOURNAL' && styles.toggleTextActive]}>📖 Daily Log</Text>
+            <View className="flex-row bg-secondary/50 rounded-xl p-1 mb-5 border border-accent/20">
+                <TouchableOpacity
+                    className={`flex-1 py-3 items-center rounded-lg ${entryType === 'JOURNAL' ? 'bg-accent shadow-sm' : ''}`}
+                    onPress={() => switchMode('JOURNAL')}
+                >
+                    <Text className={`font-bold ${entryType === 'JOURNAL' ? 'text-white' : 'text-highlight/50'}`}>📖 Daily Log</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.toggleBtn, entryType === 'THOUGHT' && styles.toggleBtnActive]} onPress={() => switchMode('THOUGHT')}>
-                    <Text style={[styles.toggleText, entryType === 'THOUGHT' && styles.toggleTextActive]}>💡 Thought</Text>
+                <TouchableOpacity
+                    className={`flex-1 py-3 items-center rounded-lg ${entryType === 'THOUGHT' ? 'bg-accent shadow-sm' : ''}`}
+                    onPress={() => switchMode('THOUGHT')}
+                >
+                    <Text className={`font-bold ${entryType === 'THOUGHT' ? 'text-white' : 'text-highlight/50'}`}>💡 Thought</Text>
                 </TouchableOpacity>
             </View>
 
             {entryType === 'THOUGHT' && (
                 <TextInput
-                    style={[styles.titleInput, !isEditable && styles.inputDisabled]}
+                    className={`bg-secondary p-4 rounded-xl mb-4 text-lg border border-accent/30 font-bold text-white ${!isEditable ? 'opacity-50' : ''}`}
                     placeholder="Title"
+                    placeholderTextColor="#BDE8F5"
                     value={thoughtTitle}
                     onChangeText={setThoughtTitle}
                     editable={isEditable}
                 />
             )}
 
-            <View style={{ flex: 1 }}>
+            <View className="flex-1">
                 <TextInput
-                    style={[styles.editor, !isEditable && styles.inputDisabled]}
+                    className={`flex-1 bg-secondary rounded-2xl p-5 text-base mb-4 border border-accent/30 text-white ${!isEditable ? 'opacity-70' : ''}`}
                     multiline
                     placeholder={entryType === 'JOURNAL' ? "How was your day?" : "What's on your mind?"}
+                    placeholderTextColor="#BDE8F5"
                     value={text}
                     onChangeText={setText}
                     textAlignVertical="top"
                     editable={isEditable}
                 />
                 {!isEditable && (
-                    <TouchableOpacity style={styles.unlockBtn} onPress={() => setIsEditable(true)}>
-                        <Text style={{ fontSize: 20 }}>✏️</Text>
+                    <TouchableOpacity className="absolute top-2 right-2 bg-white p-2 rounded-full shadow-md" onPress={() => setIsEditable(true)}>
+                        <Text className="text-xl">✏️</Text>
                     </TouchableOpacity>
                 )}
             </View>
 
             {images.length > 0 && (
-                <View style={{ height: 80, marginBottom: 10 }}>
+                <View className="h-20 mb-3">
                     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                        {images.map((uri, i) => <Image key={i} source={{ uri }} style={{ width: 80, height: 80, borderRadius: 10, marginRight: 10 }} />)}
+                        {images.map((uri, i) => <Image key={i} source={{ uri }} className="w-20 h-20 rounded-lg mr-2" />)}
                     </ScrollView>
                 </View>
             )}
 
-            <View style={[styles.actionArea, !isEditable && { opacity: 1.0 }]}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 }}>
-                    <Button title="📸 Photo" onPress={pickImage} disabled={!isEditable} />
-                    <Button title={recording ? "⏹ Stop" : "🎤 Voice"} onPress={recording ? stopRecording : startRecording} color={recording ? "red" : "blue"} disabled={!isEditable} />
-                </View>
-                {voiceNotes.length > 0 && <Text style={{ marginBottom: 10, color: 'green', textAlign: 'center' }}>{voiceNotes.length} Voice Note(s) recorded</Text>}
+            <View className={`mb-3 ${!isEditable ? 'opacity-100' : ''}`}>
+                <View className="flex-row justify-between mb-4 space-x-2">
+                    <TouchableOpacity
+                        className="flex-1 bg-secondary p-3 rounded-xl border border-accent/50 items-center"
+                        onPress={pickImage}
+                        disabled={!isEditable}
+                    >
+                        <Text className="text-highlight font-bold">📸 Photo</Text>
+                    </TouchableOpacity>
 
-                <View style={styles.buttonRow}>
-                    <Button title="Save Draft" onPress={handleManualSave} color="#666" />
-                    <View style={{ width: 20 }} />
-                    <Button title={uploading ? "Encrypting..." : `🔒 Sync ${entryType === 'THOUGHT' ? "Thought" : "Log"}`} onPress={handleSyncToCloud} disabled={uploading} color="#8a2be2" />
+                    <TouchableOpacity
+                        className={`flex-1 p-3 rounded-xl border border-accent/50 items-center ${recording ? "bg-red-500/20 border-red-500" : "bg-secondary"}`}
+                        onPress={recording ? stopRecording : startRecording}
+                        disabled={!isEditable}
+                    >
+                        <Text className={`${recording ? "text-red-400" : "text-highlight"} font-bold`}>
+                            {recording ? "⏹ Stop" : "🎤 Voice"}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+
+                {voiceNotes.length > 0 && <Text className="mb-3 text-green-400 text-center text-xs font-bold">{voiceNotes.length} Voice Note(s) recorded</Text>}
+
+                <View className="flex-row justify-center space-x-3">
+                    <TouchableOpacity
+                        className="flex-1 bg-secondary/50 p-4 rounded-2xl items-center border border-accent/20"
+                        onPress={handleManualSave}
+                    >
+                        <Text className="text-gray-400 font-bold">Save Draft</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        className={`flex-1 p-4 rounded-2xl items-center shadow-lg ${uploading ? 'bg-accent/50' : 'bg-accent'}`}
+                        onPress={handleSyncToCloud}
+                        disabled={uploading}
+                    >
+                        <Text className="text-primary font-bold uppercase tracking-wider">
+                            {uploading ? "Encrypting..." : `🔒 Sync ${entryType === 'THOUGHT' ? "Thought" : "Log"}`}
+                        </Text>
+                    </TouchableOpacity>
                 </View>
             </View>
 
@@ -352,19 +389,33 @@ export default function JournalScreen() {
                     await SecureStore.deleteItemAsync('user_passkey');
                     alert("App Wiped. Please Restart & Login to Fix Security.");
                 }}
-                style={{ marginTop: 10, padding: 10, backgroundColor: '#ffcccc', borderRadius: 5 }}
+                className="mt-2 p-2 bg-red-100 rounded-lg"
             >
-                {/* <Text style={{ color: 'red', textAlign: 'center', fontWeight: 'bold' }}>⚠️ RESET & FIX APP</Text> */}
-            {/* </TouchableOpacity> */} 
+                {/* <Text className="text-red-500 text-center font-bold">⚠️ RESET & FIX APP</Text> */}
+            {/* </TouchableOpacity> */}
 
             {showSyncModal && (
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <Text style={{ marginBottom: 10, textAlign: 'center', fontWeight: 'bold' }}>{modalMessage || "Enter Passkey to Unlock Vault"}</Text>
-                        <TextInput style={styles.modalInput} placeholder="Passkey" secureTextEntry value={passkeyInput} onChangeText={setPasskeyInput} />
-                        <Button title="Unlock & Upload" onPress={handleUnlockAndSync} />
+                <View className="absolute inset-0 bg-primary/90 justify-center items-center">
+                    <View className="bg-secondary p-6 rounded-2xl w-4/5 shadow-2xl border border-accent">
+                        <Text className="mb-6 text-center font-bold text-white text-lg font-matanya">{modalMessage || "Unlock Vault"}</Text>
+                        <TextInput
+                            className="bg-primary border border-accent p-4 rounded-xl mb-6 text-white text-center text-lg tracking-widest"
+                            placeholder="Passkey"
+                            placeholderTextColor="#555"
+                            secureTextEntry
+                            value={passkeyInput}
+                            onChangeText={setPasskeyInput}
+                            keyboardType="numeric"
+                        />
+                        <TouchableOpacity
+                            className="bg-accent p-4 rounded-xl items-center mb-3"
+                            onPress={handleUnlockAndSync}
+                        >
+                            <Text className="text-primary font-bold text-lg">Unlock & Upload</Text>
+                        </TouchableOpacity>
+
                         <TouchableOpacity onPress={() => { setShowSyncModal(false); setModalMessage(null); }}>
-                            <Text style={{ color: 'red', textAlign: 'center', marginTop: 15 }}>Cancel</Text>
+                            <Text className="text-red-400 text-center mt-2 font-bold">Cancel</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -372,25 +423,3 @@ export default function JournalScreen() {
         </View>
     );
 }
-
-const styles = StyleSheet.create({
-    container: { flex: 1, padding: 20, paddingTop: 50, backgroundColor: '#f8f9fa' },
-    header: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
-    date: { fontSize: 18, fontWeight: 'bold' },
-    status: { fontSize: 12, color: 'blue', marginTop: 4 },
-    logoutBtn: { backgroundColor: '#ffebee', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#ffcdd2', justifyContent: 'center' },
-    toggleContainer: { flexDirection: 'row', backgroundColor: '#e0e0e0', borderRadius: 8, padding: 4, marginBottom: 10 },
-    toggleBtn: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 6 },
-    toggleBtnActive: { backgroundColor: 'white', shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 2 },
-    toggleText: { fontWeight: '600', color: '#666' },
-    toggleTextActive: { color: '#000' },
-    titleInput: { backgroundColor: 'white', padding: 12, borderRadius: 8, marginBottom: 10, fontSize: 16, borderWidth: 1, borderColor: '#ddd', fontWeight: 'bold' },
-    editor: { flex: 1, backgroundColor: 'white', borderRadius: 10, padding: 15, fontSize: 16, marginBottom: 10, borderWidth: 1, borderColor: '#eee' },
-    inputDisabled: { backgroundColor: '#e0e0e0', color: '#555' },
-    unlockBtn: { position: 'absolute', top: 10, right: 10, backgroundColor: 'white', padding: 8, borderRadius: 20, elevation: 3, shadowColor: '#000', shadowOpacity: 0.2 },
-    actionArea: { marginBottom: 10 },
-    buttonRow: { flexDirection: 'row', justifyContent: 'center' },
-    modalOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-    modalContent: { backgroundColor: 'white', padding: 25, borderRadius: 15, width: '80%', elevation: 5 },
-    modalInput: { borderWidth: 1, borderColor: '#ccc', padding: 10, borderRadius: 5, marginBottom: 15 },
-});

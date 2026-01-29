@@ -85,7 +85,21 @@ function AppNavigator() {
   );
 }
 
+import { useFonts } from 'expo-font';
+
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    'Matanya': require('./assets/Matanya.otf'),
+  });
+
+  if (!fontsLoaded) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#0000ff" />
+      </View>
+    );
+  }
+
   return (
     <AuthProvider>
       <AppNavigator />

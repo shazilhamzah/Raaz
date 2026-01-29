@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import 'react-native-get-random-values';
-import { StyleSheet, Text, View, TextInput, Button, ScrollView } from 'react-native';
+import { Text, View, TextInput, Button, ScrollView } from 'react-native';
 import CryptoService from '../services/CryptoService';
 import * as Crypto from 'expo-crypto'; // <--- NEW IMPORT
 
@@ -39,64 +39,57 @@ export default function App() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.header}>🔐 The Gibberish Engine</Text>
+    <ScrollView contentContainerStyle={{ flexGrow: 1 }} className="p-10 bg-primary">
+      <Text className="text-3xl font-matanya mb-8 text-center text-highlight">The Gibberish Engine</Text>
 
       {/* SECTION 1: ENCRYPT */}
-      <View style={styles.card}>
-        <Text style={styles.label}>1. Secret Message:</Text>
+      <View className="bg-secondary p-5 rounded-2xl mb-6 border border-accent/20">
+        <Text className="font-bold mb-2 text-highlight">1. Secret Message:</Text>
         <TextInput
-          style={styles.input}
+          className="bg-primary/50 border border-accent/30 p-3 mb-4 rounded-xl text-white"
           placeholder="My secret dream..."
+          placeholderTextColor="#BDE8F5"
           value={secretText}
           onChangeText={setSecretText}
         />
-        <Text style={styles.label}>2. Lock it with Passkey:</Text>
+        <Text className="font-bold mb-2 text-highlight">2. Lock it with Passkey:</Text>
         <TextInput
-          style={styles.input}
+          className="bg-primary/50 border border-accent/30 p-3 mb-6 rounded-xl text-white"
           placeholder="e.g. 1234"
+          placeholderTextColor="#BDE8F5"
           value={passkey}
           onChangeText={setPasskey}
         />
-        <Button title="ENCRYPT DATA" onPress={handleEncrypt} />
+        <Button title="ENCRYPT DATA" onPress={handleEncrypt} color="#4988C4" />
       </View>
 
       {/* SECTION 2: THE DATABASE VIEW */}
       {encryptedBlob ? (
-        <View style={[styles.card, { backgroundColor: '#e0e0e0' }]}>
-          <Text style={styles.label}>💾 Stored in DB (What Manager sees):</Text>
-          <Text style={styles.blob}>{encryptedBlob.substring(0, 50)}...</Text>
+        <View className="bg-secondary/50 p-5 rounded-2xl mb-6 border-l-4 border-orange-400">
+          <Text className="font-bold mb-2 text-orange-200">💾 Stored in DB (Manager View):</Text>
+          <Text className="font-mono text-highlight/70 text-[10px] leading-4">{encryptedBlob.substring(0, 100)}...</Text>
         </View>
       ) : null}
 
       {/* SECTION 3: DECRYPT */}
-      <View style={styles.card}>
-        <Text style={styles.label}>3. Try to Unlock (Enter WRONG key):</Text>
+      <View className="bg-secondary p-5 rounded-2xl mb-6 border border-accent/20">
+        <Text className="font-bold mb-2 text-highlight">3. Unlock (Try WRONG key):</Text>
         <TextInput
-          style={styles.input}
+          className="bg-primary/50 border border-accent/30 p-3 mb-6 rounded-xl text-white"
           placeholder="Enter Passkey..."
+          placeholderTextColor="#BDE8F5"
           value={decryptionKey}
           onChangeText={setDecryptionKey}
         />
-        <Button title="DECRYPT" onPress={handleDecrypt} color="green" />
+        <Button title="DECRYPT" onPress={handleDecrypt} color="#22c55e" />
       </View>
 
       {/* SECTION 4: RESULT */}
-      <View style={styles.card}>
-        <Text style={styles.label}>Result:</Text>
-        <Text style={styles.result}>{finalResult || "Waiting..."}</Text>
+      <View className="bg-secondary p-5 rounded-2xl mb-6 border border-accent/20">
+        <Text className="font-bold mb-2 text-highlight">Result:</Text>
+        <Text className="text-xl text-accent mt-2 font-bold">{finalResult || "Waiting..."}</Text>
       </View>
 
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { padding: 40, backgroundColor: '#f5f5f5', flexGrow: 1 },
-  header: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
-  card: { backgroundColor: 'white', padding: 15, borderRadius: 10, marginBottom: 20 },
-  label: { fontWeight: 'bold', marginBottom: 5 },
-  input: { borderWidth: 1, borderColor: '#ccc', padding: 10, marginBottom: 10, borderRadius: 5 },
-  blob: { fontFamily: 'monospace', color: '#555', fontSize: 10 },
-  result: { fontSize: 18, color: 'blue', marginTop: 10, fontWeight: 'bold' }
-});

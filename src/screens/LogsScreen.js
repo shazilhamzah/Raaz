@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import {
-    View, Text, FlatList, TouchableOpacity, StyleSheet,
+    View, Text, FlatList, TouchableOpacity,
     ActivityIndicator, TextInput, Button, Image, Alert
 } from 'react-native';
 import { AuthContext } from '../context/AuthContext';
@@ -118,7 +118,7 @@ export default function LogsScreen() {
         };
 
         if (loadingImg) return <ActivityIndicator color="blue" size="small" />;
-        return <Image source={{ uri: imageUrl }} style={{ width: '100%', height: 200, borderRadius: 10, marginTop: 10, resizeMode: 'cover' }} />;
+        return <Image source={{ uri: imageUrl }} className="w-full h-52 rounded-lg mt-3 bg-gray-200 resize-cover" />;
     };
 
     // --- COMPONENT: AUDIO PLAYER (Voice Notes) ---
@@ -178,11 +178,11 @@ export default function LogsScreen() {
         }, [sound]);
 
         return (
-            <TouchableOpacity onPress={playSound} style={styles.audioButton}>
+            <TouchableOpacity onPress={playSound} className="bg-green-500 p-3 rounded-lg mt-3 items-center w-full">
                 {loadingAudio ? (
                     <ActivityIndicator color="white" size="small" />
                 ) : (
-                    <Text style={{ color: 'white', fontWeight: 'bold' }}>
+                    <Text className="text-white font-bold">
                         {isPlaying ? "⏸ Playing..." : "▶️ Play Voice Note"}
                     </Text>
                 )}
@@ -201,28 +201,28 @@ export default function LogsScreen() {
         }
 
         const isThought = item.type === 'THOUGHT';
-        const cardStyle = isThought ? styles.cardThought : styles.card;
+        const cardClass = isThought ? "bg-yellow-50 border-l-4 border-yellow-400" : "bg-white";
         const icon = isThought ? "💡" : "📖";
 
         return (
             <TouchableOpacity
-                style={cardStyle}
+                className={`${cardClass} rounded-xl mb-4 p-4 shadow-sm`}
                 onPress={() => setExpandedId(isExpanded ? null : item._id)}
                 activeOpacity={0.8}
             >
-                <View style={styles.cardHeader}>
-                    <Text style={{ fontSize: 22, marginRight: 12 }}>{icon}</Text>
-                    <View style={{ flex: 1 }}>
-                        <Text style={styles.title}>{item.title || "Untitled"}</Text>
-                        <Text style={styles.date}>{item.date}</Text>
+                <View className="flex-row items-center">
+                    <Text className="text-2xl mr-3">{icon}</Text>
+                    <View className="flex-1">
+                        <Text className="font-bold text-gray-700 text-base">{item.title || "Untitled"}</Text>
+                        <Text className="text-gray-400 italic text-xs mt-1">{item.date}</Text>
                     </View>
-                    <Text style={{ fontSize: 18, color: '#ccc' }}>{isExpanded ? "▲" : "▼"}</Text>
+                    <Text className="text-lg text-gray-300">{isExpanded ? "▲" : "▼"}</Text>
                 </View>
 
                 {isExpanded && (
-                    <View style={styles.body}>
-                        <Text style={styles.contentText}>
-                            {decryptedContent || <Text style={{ fontStyle: 'italic', color: '#999' }}>(Empty)</Text>}
+                    <View className="mt-4 pt-3 border-t border-gray-100">
+                        <Text className="text-base leading-6 text-gray-800 mb-3">
+                            {decryptedContent || <Text className="italic text-gray-400">(Empty)</Text>}
                         </Text>
 
                         {/* Images */}
@@ -243,57 +243,64 @@ export default function LogsScreen() {
     // --- LOCK SCREEN STATE ---
     if (!activeKey) {
         return (
-            <View style={styles.centerContainer}>
-                <Text style={styles.lockIcon}>🔐</Text>
-                <Text style={styles.lockTitle}>Vault Locked</Text>
-                <Text style={{ marginBottom: 20, color: '#666' }}>Enter Passkey to decrypt logs.</Text>
+            <View className="flex-1 justify-center items-center p-8 bg-primary">
+                <Text className="text-6xl mb-6">🔐</Text>
+                <Text className="text-4xl font-matanya text-highlight mb-4 text-center">Vault Locked</Text>
+                <Text className="mb-8 text-highlight/70 text-center text-base">Enter Passkey to decrypt logs.</Text>
 
                 <TouchableOpacity
-                    style={[styles.bioButton, !hasSavedPasskey && styles.bioButtonDisabled]}
+                    className={`p-4 rounded-2xl w-full items-center mb-6 shadow-md ${hasSavedPasskey ? 'bg-accent' : 'bg-gray-500'}`}
                     onPress={attemptBiometric} disabled={!hasSavedPasskey}
                 >
-                    <Text style={{ color: 'white', fontWeight: 'bold' }}>
+                    <Text className="text-primary font-bold text-lg uppercase tracking-wider">
                         {hasSavedPasskey ? "Use Biometrics" : "Biometrics Unavailable"}
                     </Text>
                 </TouchableOpacity>
 
-                <Text style={{ marginVertical: 15, color: '#aaa' }}>- OR -</Text>
+                <Text className="my-4 text-highlight/40">- OR -</Text>
 
                 <TextInput
-                    style={styles.input}
+                    className="w-full border-2 border-accent p-4 rounded-2xl mb-6 bg-secondary text-white text-center text-xl tracking-widest"
                     placeholder="Enter Passkey (e.g. 1111)"
+                    placeholderTextColor="#B0C4DE"
                     secureTextEntry
                     keyboardType="numeric"
                     value={passkeyInput}
                     onChangeText={setPasskeyInput}
                 />
-                <Button title="Unlock / Preview" onPress={handleManualUnlock} />
+
+                <TouchableOpacity
+                    className="bg-accent/20 border border-accent p-3 rounded-xl w-full items-center"
+                    onPress={handleManualUnlock}
+                >
+                    <Text className="text-highlight font-bold">Unlock with Passkey</Text>
+                </TouchableOpacity>
             </View>
         );
     }
 
     // --- MAIN LIST STATE ---
     return (
-        <View style={styles.container}>
-            <View style={styles.headerRow}>
-                <Text style={styles.header}>
+        <View className="flex-1 bg-[#f4f4f4] p-5 pt-12">
+            <View className="flex-row justify-between items-center mb-4">
+                <Text className="text-3xl font-bold text-gray-800">
                     📜 Logs
-                    {tempKey && <Text style={{ fontSize: 16, color: 'red', fontWeight: 'normal' }}> (Preview Mode)</Text>}
+                    {tempKey && <Text className="text-base text-red-500 font-normal"> (Preview Mode)</Text>}
                 </Text>
-                <TouchableOpacity onPress={handleRefresh} style={styles.reloadButton}>
-                    <Text style={{ fontSize: 24 }}>🔄</Text>
+                <TouchableOpacity onPress={handleRefresh} className="p-1">
+                    <Text className="text-2xl">🔄</Text>
                 </TouchableOpacity>
             </View>
 
             <TextInput
-                style={styles.searchBar}
+                className="bg-white p-3 rounded-lg mb-4 border border-gray-200"
                 placeholder="🔍 Search Title or Date..."
                 value={searchQuery}
                 onChangeText={handleSearch}
             />
 
             {loading ? (
-                <ActivityIndicator size="large" color="black" style={{ marginTop: 50 }} />
+                <ActivityIndicator size="large" color="black" className="mt-12" />
             ) : (
                 <FlatList
                     data={filteredEntries}
@@ -302,40 +309,9 @@ export default function LogsScreen() {
                     refreshing={refreshing}
                     onRefresh={handleRefresh}
                     contentContainerStyle={{ paddingBottom: 30 }}
-                    ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 50, color: '#999' }}>No entries found.</Text>}
+                    ListEmptyComponent={<Text className="text-center mt-12 text-gray-400">No entries found.</Text>}
                 />
             )}
         </View>
     );
 }
-
-const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#f4f4f4', padding: 20, paddingTop: 50 },
-    headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
-    header: { fontSize: 28, fontWeight: 'bold', color: '#333' },
-    reloadButton: { padding: 5 },
-
-    // Cards
-    card: { backgroundColor: 'white', borderRadius: 12, marginBottom: 15, padding: 15, elevation: 3, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 3 },
-    cardThought: { backgroundColor: '#fffdf0', borderRadius: 12, marginBottom: 15, padding: 15, borderLeftWidth: 4, borderLeftColor: '#FFC107', elevation: 3 },
-
-    cardHeader: { flexDirection: 'row', alignItems: 'center' },
-    title: { fontWeight: 'bold', color: '#444', fontSize: 16 },
-    date: { color: '#888', fontStyle: 'italic', fontSize: 12, marginTop: 2 },
-
-    body: { marginTop: 15, paddingTop: 10, borderTopWidth: 1, borderColor: '#eee' },
-    contentText: { fontSize: 16, lineHeight: 24, color: '#333', marginBottom: 10 },
-
-    // Media & Audio
-    audioButton: { backgroundColor: '#4CAF50', padding: 12, borderRadius: 8, marginTop: 10, alignItems: 'center', width: '100%' },
-
-    // Lock Screen
-    centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30, backgroundColor: '#f4f4f4' },
-    lockIcon: { fontSize: 60, marginBottom: 10 },
-    lockTitle: { fontSize: 24, fontWeight: 'bold', marginBottom: 10, color: '#333' },
-    bioButton: { backgroundColor: '#2196F3', padding: 12, borderRadius: 8, width: '100%', alignItems: 'center' },
-    bioButtonDisabled: { backgroundColor: '#ccc' },
-    input: { width: '100%', borderWidth: 1, borderColor: '#ccc', padding: 12, borderRadius: 8, marginBottom: 15, backgroundColor: 'white', fontSize: 16, textAlign: 'center' },
-
-    searchBar: { backgroundColor: 'white', padding: 12, borderRadius: 8, marginBottom: 15, borderWidth: 1, borderColor: '#e0e0e0' }
-});

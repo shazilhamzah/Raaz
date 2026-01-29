@@ -1,6 +1,6 @@
 import React, { useState, useContext } from 'react';
 import {
-    View, Text, TextInput, TouchableOpacity, StyleSheet,
+    View, Text, TextInput, TouchableOpacity,
     Alert, ActivityIndicator, KeyboardAvoidingView, Platform
 } from 'react-native';
 import { AuthContext } from '../context/AuthContext';
@@ -43,40 +43,42 @@ export default function SetupVaultScreen({ navigation }) {
     return (
         <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : "height"}
-            style={styles.container}
+            className="flex-1 bg-primary"
         >
-            <View style={styles.content}>
-                <Text style={styles.icon}>🛡️</Text>
-                <Text style={styles.title}>Secure Your Vault</Text>
+            <View className="flex-1 p-8 justify-center">
+                <Text className="text-8xl text-center mb-6">🛡️</Text>
+                <Text className="text-4xl font-bold font-matanya text-center text-highlight mb-8">Secure Your Vault</Text>
 
-                <Text style={styles.warning}>
-                    Create a Passkey that is known only to you.
-                    {"\n\n"}
-                    <Text style={{ fontWeight: 'bold', color: '#d32f2f' }}>
-                        ⚠️ If you lose this passkey, your journal entries cannot be recovered by anyone, including us.
+                <View className="bg-secondary/50 p-5 rounded-2xl mb-8 border-l-4 border-orange-500">
+                    <Text className="text-white leading-snug text-base">
+                        Create a Passkey that is known only to you.
+                        {"\n\n"}
+                        <Text className="font-bold text-orange-400">
+                            ⚠️ If you lose this passkey, your journal entries cannot be recovered by anyone, including us.
+                        </Text>
                     </Text>
-                </Text>
+                </View>
 
-                <View style={styles.inputContainer}>
-                    <Text style={styles.label}>Create Passkey</Text>
+                <View className="mb-6">
+                    <Text className="text-sm font-bold text-highlight/70 mb-3 uppercase tracking-wider">Create Passkey</Text>
                     <TextInput
-                        style={styles.input}
+                        className="bg-secondary p-5 rounded-2xl text-xl border border-accent/50 text-white tracking-widest text-center"
                         placeholder="e.g. 1111"
-                        placeholderTextColor="#aaa"
+                        placeholderTextColor="#BDE8F5"
                         secureTextEntry
-                        keyboardType="default" // Or 'default' for alphanumeric
+                        keyboardType="numeric" // Changed to numeric for passkey
                         value={passkey}
                         onChangeText={setPasskey}
                         maxLength={6}
                     />
                 </View>
 
-                <View style={styles.inputContainer}>
-                    <Text style={styles.label}>Confirm Passkey</Text>
+                <View className="mb-8">
+                    <Text className="text-sm font-bold text-highlight/70 mb-3 uppercase tracking-wider">Confirm Passkey</Text>
                     <TextInput
-                        style={styles.input}
+                        className="bg-secondary p-5 rounded-2xl text-xl border border-accent/50 text-white tracking-widest text-center"
                         placeholder="Re-enter passkey"
-                        placeholderTextColor="#aaa"
+                        placeholderTextColor="#BDE8F5"
                         secureTextEntry
                         keyboardType="numeric"
                         value={confirmPasskey}
@@ -86,59 +88,17 @@ export default function SetupVaultScreen({ navigation }) {
                 </View>
 
                 <TouchableOpacity
-                    style={[styles.button, loading && styles.buttonDisabled]}
+                    className={`bg-accent p-5 rounded-2xl items-center mt-2 shadow-lg shadow-black/40 ${loading ? 'opacity-50' : ''}`}
                     onPress={handleCreate}
                     disabled={loading}
                 >
                     {loading ? (
-                        <ActivityIndicator color="white" />
+                        <ActivityIndicator color="#0F2854" />
                     ) : (
-                        <Text style={styles.buttonText}>🔒 Encrypt & Create Vault</Text>
+                        <Text className="text-primary text-xl font-bold uppercase tracking-wider">🔒 Encrypt & Create</Text>
                     )}
                 </TouchableOpacity>
             </View>
         </KeyboardAvoidingView>
     );
 }
-
-const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#fff' },
-    content: { flex: 1, padding: 30, justifyContent: 'center' },
-    icon: { fontSize: 60, textAlign: 'center', marginBottom: 20 },
-    title: { fontSize: 28, fontWeight: 'bold', textAlign: 'center', color: '#333', marginBottom: 20 },
-    warning: {
-        backgroundColor: '#fff3e0',
-        padding: 15,
-        borderRadius: 8,
-        color: '#e65100',
-        lineHeight: 22,
-        marginBottom: 30,
-        borderLeftWidth: 4,
-        borderLeftColor: '#ff9800'
-    },
-    inputContainer: { marginBottom: 20 },
-    label: { fontSize: 14, fontWeight: '600', color: '#555', marginBottom: 8, textTransform: 'uppercase' },
-    input: {
-        backgroundColor: '#f5f5f5',
-        padding: 15,
-        borderRadius: 10,
-        fontSize: 18,
-        borderWidth: 1,
-        borderColor: '#e0e0e0',
-        color: '#333'
-    },
-    button: {
-        backgroundColor: '#000',
-        padding: 18,
-        borderRadius: 12,
-        alignItems: 'center',
-        marginTop: 20,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 5,
-        elevation: 5
-    },
-    buttonDisabled: { backgroundColor: '#999' },
-    buttonText: { color: 'white', fontSize: 18, fontWeight: 'bold' }
-});
