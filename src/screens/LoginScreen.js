@@ -1,5 +1,5 @@
 import React, { useState, useContext } from 'react';
-import { View, Text, TextInput, Button, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, Text, TextInput, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../context/AuthContext';
 
@@ -21,10 +21,15 @@ export default function LoginScreen() {
   };
 
   return (
-    <View className="flex-1 justify-center text-left p-8 bg-primary">
-      <Text className="text-7xl text-highlight font-matanya mb-8 text-center">
-        {isLogin ? "LOG IN" : "SIGN UP"}
-      </Text>
+    <View className="flex-1 justify-center p-8 bg-primary">
+      <View className="items-center mb-6">
+        <View className="bg-secondary/30 p-4 rounded-full border border-accent/20 mb-4 shadow-lg shadow-accent/10">
+          <Ionicons name={isLogin ? "log-in-outline" : "person-add-outline"} size={48} color="#BDE8F5" />
+        </View>
+        <Text className="text-7xl text-highlight font-matanya text-center tracking-wider">
+          {isLogin ? "LOG IN" : "SIGN UP"}
+        </Text>
+      </View>
 
       <View className="w-full bg-secondary p-10 rounded-2xl shadow-xl bg-opacity-80 border border-accent">
         <View className="mb-6">
@@ -82,19 +87,21 @@ export default function LoginScreen() {
           <ActivityIndicator size="large" color="#4988C4" />
         ) : (
           <TouchableOpacity
-            className="bg-accent p-4 rounded-2xl items-center shadow-lg shadow-black/30"
+            className="bg-accent p-4 rounded-2xl items-center shadow-lg shadow-black/30 flex-row justify-center space-x-2"
             onPress={handleAction}
           >
+            <Ionicons name={isLogin ? "key-outline" : "create-outline"} size={24} color="#0F2854" style={{ marginRight: 8 }} />
             <Text className="text-white font-bold text-xl uppercase tracking-wider">
               {isLogin ? "Unlock Journal" : "Create Account"}
             </Text>
           </TouchableOpacity>
         )}
 
-        <TouchableOpacity onPress={() => setIsLogin(!isLogin)} className="mt-6">
+        <TouchableOpacity onPress={() => setIsLogin(!isLogin)} className="mt-6 flex-row justify-center items-center">
           <Text className="text-highlight text-center font-bold">
             {isLogin ? "New here? Create Account" : "Already have an account? Log In"}
           </Text>
+          <Ionicons name="arrow-forward" size={16} color="#BDE8F5" style={{ marginLeft: 5 }} />
         </TouchableOpacity>
 
       </View>

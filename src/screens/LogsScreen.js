@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useContext } from 'react';
 import {
     View, Text, FlatList, TouchableOpacity,
-    ActivityIndicator, TextInput, Button, Image, Alert
+    ActivityIndicator, TextInput, Image, Alert,
+    Modal, Dimensions, TouchableWithoutFeedback
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../context/AuthContext';
 import api from '../services/api';
 import CryptoService from '../services/CryptoService';
@@ -25,6 +27,9 @@ export default function LogsScreen() {
 
     // STATE: "Garbage View" Key (used if passkey is wrong)
     const [tempKey, setTempKey] = useState(null);
+
+    // STATE: Fullscreen image viewer
+    const [fullscreenImage, setFullscreenImage] = useState(null);
 
     // LOGIC: Use the Verified Key if available, otherwise use the Temp Key
     const activeKey = journalKey || tempKey;
@@ -118,7 +123,11 @@ export default function LogsScreen() {
         };
 
         if (loadingImg) return <ActivityIndicator color="blue" size="small" />;
-        return <Image source={{ uri: imageUrl }} className="w-full h-52 rounded-lg mt-3 bg-gray-200 resize-cover" />;
+        return (
+            <TouchableOpacity onPress={() => setFullscreenImage(imageUrl)} activeOpacity={0.8}>
+                <Image source={{ uri: imageUrl }} className="w-full h-52 rounded-lg mt-3 bg-gray-200 resize-cover" />
+            </TouchableOpacity>
+        );
     };
 
     // --- COMPONENT: AUDIO PLAYER (Voice Notes) ---
@@ -126,6 +135,7 @@ export default function LogsScreen() {
         const [sound, setSound] = useState();
         const [isPlaying, setIsPlaying] = useState(false);
         const [loadingAudio, setLoadingAudio] = useState(false);
+        const { userToken, journalKey } = useContext(AuthContext); // Ensure context is available if needed
 
         const playSound = async () => {
             if (sound) {
@@ -178,13 +188,16 @@ export default function LogsScreen() {
         }, [sound]);
 
         return (
-            <TouchableOpacity onPress={playSound} className="bg-green-500 p-3 rounded-lg mt-3 items-center w-full">
+            <TouchableOpacity onPress={playSound} className="flex-row items-center bg-accent/20 border border-accent/50 p-3 rounded-xl mt-3 w-full">
                 {loadingAudio ? (
-                    <ActivityIndicator color="white" size="small" />
+                    <ActivityIndicator color="#BDE8F5" size="small" />
                 ) : (
-                    <Text className="text-white font-bold">
-                        {isPlaying ? "⏸ Playing..." : "▶️ Play Voice Note"}
-                    </Text>
+                    <>
+                        <Ionicons name={isPlaying ? "pause-circle" : "play-circle"} size={24} color="#BDE8F5" style={{ marginRight: 10 }} />
+                        <Text className="text-highlight font-bold">
+                            {isPlaying ? "Playing Voice Note..." : "Play Voice Note"}
+                        </Text>
+                    </>
                 )}
             </TouchableOpacity>
         );
@@ -201,28 +214,34 @@ export default function LogsScreen() {
         }
 
         const isThought = item.type === 'THOUGHT';
-        const cardClass = isThought ? "bg-yellow-50 border-l-4 border-yellow-400" : "bg-white";
-        const icon = isThought ? "💡" : "📖";
+        // Dark Theme Cards
+        const cardClass = isThought
+            ? "bg-secondary/30 border-l-4 border-yellow-500/70"
+            : "bg-secondary/20 border-l-4 border-accent";
 
         return (
             <TouchableOpacity
-                className={`${cardClass} rounded-xl mb-4 p-4 shadow-sm`}
+                className={`${cardClass} rounded-2xl mb-4 p-5 border border-accent/10 shadow-sm`}
                 onPress={() => setExpandedId(isExpanded ? null : item._id)}
                 activeOpacity={0.8}
             >
-                <View className="flex-row items-center">
-                    <Text className="text-2xl mr-3">{icon}</Text>
-                    <View className="flex-1">
-                        <Text className="font-bold text-gray-700 text-base">{item.title || "Untitled"}</Text>
-                        <Text className="text-gray-400 italic text-xs mt-1">{item.date}</Text>
+                <View className="flex-row items-center justify-between">
+                    <View className="flex-row items-center flex-1">
+                        <View className={`p-2 rounded-full mr-4 ${isThought ? "bg-yellow-500/20" : "bg-accent/20"}`}>
+                            <Ionicons name={isThought ? "bulb-outline" : "book-outline"} size={24} color={isThought ? "#FCD34D" : "#BDE8F5"} />
+                        </View>
+                        <View className="flex-1">
+                            <Text className="font-bold text-white text-lg font-matanya tracking-wide">{item.title || "Untitled"}</Text>
+                            <Text className="text-accent/60 text-xs mt-1 font-semibold uppercase tracking-wider">{item.date}</Text>
+                        </View>
                     </View>
-                    <Text className="text-lg text-gray-300">{isExpanded ? "▲" : "▼"}</Text>
+                    <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={20} color="rgba(189, 232, 245, 0.5)" />
                 </View>
 
                 {isExpanded && (
-                    <View className="mt-4 pt-3 border-t border-gray-100">
-                        <Text className="text-base leading-6 text-gray-800 mb-3">
-                            {decryptedContent || <Text className="italic text-gray-400">(Empty)</Text>}
+                    <View className="mt-4 pt-4 border-t border-accent/10">
+                        <Text className="text-base leading-7 text-gray-200 mb-4 font-light">
+                            {(typeof decryptedContent === 'string' ? decryptedContent : '') || <Text className="italic text-gray-500">(Empty content)</Text>}
                         </Text>
 
                         {/* Images */}
@@ -244,36 +263,47 @@ export default function LogsScreen() {
     if (!activeKey) {
         return (
             <View className="flex-1 justify-center items-center p-8 bg-primary">
-                <Text className="text-6xl mb-6">🔐</Text>
-                <Text className="text-4xl font-matanya text-highlight mb-4 text-center">Vault Locked</Text>
-                <Text className="mb-8 text-highlight/70 text-center text-base">Enter Passkey to decrypt logs.</Text>
+                <View className="bg-accent/10 p-6 rounded-full mb-6 border border-accent/30">
+                    <Ionicons name="lock-closed" size={64} color="#BDE8F5" />
+                </View>
+
+                <Text className="text-4xl font-matanya text-highlight mb-4 text-center tracking-widest">Vault Locked</Text>
+                <Text className="mb-10 text-highlight/60 text-center text-base leading-6">
+                    This area is encrypted.{"\n"}Enter your passkey to reveal your logs.
+                </Text>
 
                 <TouchableOpacity
-                    className={`p-4 rounded-2xl w-full items-center mb-6 shadow-md ${hasSavedPasskey ? 'bg-accent' : 'bg-gray-500'}`}
+                    className={`flex-row p-5 rounded-2xl w-full items-center justify-center mb-6 shadow-lg shadow-black/40 border border-accent/20 ${hasSavedPasskey ? 'bg-accent' : 'bg-gray-700 opacity-50'}`}
                     onPress={attemptBiometric} disabled={!hasSavedPasskey}
                 >
+                    <Ionicons name="finger-print" size={24} color="#0F2854" style={{ marginRight: 10 }} />
                     <Text className="text-primary font-bold text-lg uppercase tracking-wider">
-                        {hasSavedPasskey ? "Use Biometrics" : "Biometrics Unavailable"}
+                        {hasSavedPasskey ? "Biometric Unlock" : "No Biometrics"}
                     </Text>
                 </TouchableOpacity>
 
-                <Text className="my-4 text-highlight/40">- OR -</Text>
+                <View className="flex-row items-center w-full mb-6">
+                    <View className="h-[1px] bg-accent/20 flex-1"></View>
+                    <Text className="mx-4 text-highlight/30 font-bold text-xs uppercase">Or use Passkey</Text>
+                    <View className="h-[1px] bg-accent/20 flex-1"></View>
+                </View>
 
                 <TextInput
-                    className="w-full border-2 border-accent p-4 rounded-2xl mb-6 bg-secondary text-white text-center text-xl tracking-widest"
-                    placeholder="Enter Passkey (e.g. 1111)"
+                    className="w-full border border-accent/50 p-5 rounded-2xl mb-6 bg-secondary text-white text-center text-2xl tracking-[5px] font-bold placeholder:text-highlight/20"
+                    placeholder="••••"
                     placeholderTextColor="#B0C4DE"
                     secureTextEntry
                     keyboardType="numeric"
                     value={passkeyInput}
                     onChangeText={setPasskeyInput}
+                    maxLength={6}
                 />
 
                 <TouchableOpacity
-                    className="bg-accent/20 border border-accent p-3 rounded-xl w-full items-center"
+                    className="bg-secondary/50 border border-accent/50 p-4 rounded-xl w-full items-center active:bg-secondary"
                     onPress={handleManualUnlock}
                 >
-                    <Text className="text-highlight font-bold">Unlock with Passkey</Text>
+                    <Text className="text-highlight font-bold tracking-wider">UNLOCK VAULT</Text>
                 </TouchableOpacity>
             </View>
         );
@@ -281,26 +311,34 @@ export default function LogsScreen() {
 
     // --- MAIN LIST STATE ---
     return (
-        <View className="flex-1 bg-[#f4f4f4] p-5 pt-12">
-            <View className="flex-row justify-between items-center mb-4">
-                <Text className="text-3xl font-bold text-gray-800">
-                    📜 Logs
-                    {tempKey && <Text className="text-base text-red-500 font-normal"> (Preview Mode)</Text>}
-                </Text>
-                <TouchableOpacity onPress={handleRefresh} className="p-1">
-                    <Text className="text-2xl">🔄</Text>
+        <View className="flex-1 bg-primary pt-12 px-5">
+            <View className="flex-row justify-between items-center mb-6">
+                <View>
+                    <Text className="text-3xl font-matanya text-highlight tracking-widest uppercase">
+                        Past Entries
+                    </Text>
+                    {tempKey && <Text className="text-xs text-red-400 font-bold mt-1 tracking-wide uppercase">⚠️ Preview Mode (Key Unverified)</Text>}
+                </View>
+                <TouchableOpacity onPress={handleRefresh} className="bg-secondary/40 p-3 rounded-full border border-accent/20">
+                    <Ionicons name="refresh" size={20} color="#BDE8F5" />
                 </TouchableOpacity>
             </View>
 
-            <TextInput
-                className="bg-white p-3 rounded-lg mb-4 border border-gray-200"
-                placeholder="🔍 Search Title or Date..."
-                value={searchQuery}
-                onChangeText={handleSearch}
-            />
+            <View className="flex-row items-center bg-secondary/30 border border-accent/20 rounded-2xl px-4 mb-6">
+                <Ionicons name="search" size={20} color="rgba(189, 232, 245, 0.5)" />
+                <TextInput
+                    className="flex-1 p-4 text-white font-semibold text-base"
+                    placeholder="Search logs..."
+                    placeholderTextColor="rgba(189, 232, 245, 0.3)"
+                    value={searchQuery}
+                    onChangeText={handleSearch}
+                />
+            </View>
 
             {loading ? (
-                <ActivityIndicator size="large" color="black" className="mt-12" />
+                <View className="flex-1 justify-center items-center">
+                    <ActivityIndicator size="large" color="#4988C4" />
+                </View>
             ) : (
                 <FlatList
                     data={filteredEntries}
@@ -308,10 +346,44 @@ export default function LogsScreen() {
                     renderItem={renderItem}
                     refreshing={refreshing}
                     onRefresh={handleRefresh}
-                    contentContainerStyle={{ paddingBottom: 30 }}
-                    ListEmptyComponent={<Text className="text-center mt-12 text-gray-400">No entries found.</Text>}
+                    contentContainerStyle={{ paddingBottom: 100 }}
+                    ListEmptyComponent={
+                        <View className="items-center mt-20 opacity-50">
+                            <Ionicons name="file-tray-open-outline" size={64} color="#4988C4" />
+                            <Text className="text-center mt-4 text-accent text-lg">No entries found.</Text>
+                        </View>
+                    }
                 />
             )}
+
+            {/* --- FULLSCREEN IMAGE MODAL --- */}
+            <Modal
+                visible={fullscreenImage !== null}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setFullscreenImage(null)}
+            >
+                <TouchableWithoutFeedback onPress={() => setFullscreenImage(null)}>
+                    <View className="flex-1 bg-black/95 justify-center items-center">
+                        <TouchableOpacity
+                            className="absolute top-12 right-6 z-10 bg-white/20 p-3 rounded-full"
+                            onPress={() => setFullscreenImage(null)}
+                        >
+                            <Ionicons name="close" size={28} color="white" />
+                        </TouchableOpacity>
+                        {fullscreenImage && (
+                            <Image
+                                source={{ uri: fullscreenImage }}
+                                style={{
+                                    width: Dimensions.get('window').width,
+                                    height: Dimensions.get('window').height * 0.7,
+                                }}
+                                resizeMode="contain"
+                            />
+                        )}
+                    </View>
+                </TouchableWithoutFeedback>
+            </Modal>
         </View>
     );
 }

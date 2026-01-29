@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import 'react-native-get-random-values';
-import { Text, View, TextInput, Button, ScrollView } from 'react-native';
+import { Text, View, TextInput, TouchableOpacity, ScrollView } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import CryptoService from '../services/CryptoService';
-import * as Crypto from 'expo-crypto'; // <--- NEW IMPORT
+
 
 export default function App() {
   const [passkey, setPasskey] = useState('');
@@ -35,59 +36,104 @@ export default function App() {
 
     // 2. Decrypt
     const result = CryptoService.decrypt(encryptedBlob, key);
-    setFinalResult(result);
+    // Handle object return {text, success} vs string
+    const decryptedText = (typeof result === 'object' && result.text) ? result.text : result;
+    setFinalResult(decryptedText);
   };
 
   return (
-    <ScrollView contentContainerStyle={{ flexGrow: 1 }} className="p-10 bg-primary">
-      <Text className="text-3xl font-matanya mb-8 text-center text-highlight">The Gibberish Engine</Text>
+    <ScrollView contentContainerStyle={{ flexGrow: 1 }} className="p-8 bg-primary">
+      <View className="items-center mb-8">
+        <View className="bg-secondary/30 p-4 rounded-full border border-accent/20 mb-4">
+          <Ionicons name="code-slash-outline" size={48} color="#BDE8F5" />
+        </View>
+        <Text className="text-3xl font-matanya text-center text-highlight tracking-widest uppercase">The Gibberish Engine</Text>
+      </View>
 
       {/* SECTION 1: ENCRYPT */}
-      <View className="bg-secondary p-5 rounded-2xl mb-6 border border-accent/20">
-        <Text className="font-bold mb-2 text-highlight">1. Secret Message:</Text>
+      <View className="bg-secondary/20 p-6 rounded-3xl mb-6 border border-accent/20">
+        <View className="flex-row items-center mb-4 border-b border-accent/10 pb-2">
+          <Ionicons name="lock-closed-outline" size={24} color="#BDE8F5" style={{ marginRight: 10 }} />
+          <Text className="font-bold text-lg text-highlight">Encryption Lab</Text>
+        </View>
+
+        <Text className="text-xs font-bold text-accent/60 mb-2 uppercase tracking-wider">1. Secret Message</Text>
         <TextInput
-          className="bg-primary/50 border border-accent/30 p-3 mb-4 rounded-xl text-white"
+          className="bg-primary/50 border border-accent/30 p-4 mb-4 rounded-xl text-white font-semibold"
           placeholder="My secret dream..."
-          placeholderTextColor="#BDE8F5"
+          placeholderTextColor="rgba(189, 232, 245, 0.3)"
           value={secretText}
           onChangeText={setSecretText}
         />
-        <Text className="font-bold mb-2 text-highlight">2. Lock it with Passkey:</Text>
-        <TextInput
-          className="bg-primary/50 border border-accent/30 p-3 mb-6 rounded-xl text-white"
-          placeholder="e.g. 1234"
-          placeholderTextColor="#BDE8F5"
-          value={passkey}
-          onChangeText={setPasskey}
-        />
-        <Button title="ENCRYPT DATA" onPress={handleEncrypt} color="#4988C4" />
+
+        <Text className="text-xs font-bold text-accent/60 mb-2 uppercase tracking-wider">2. Lock with Passkey</Text>
+        <View className="flex-row items-center bg-primary/50 border border-accent/30 rounded-xl px-4 mb-6">
+          <Ionicons name="key-outline" size={20} color="#BDE8F5" style={{ marginRight: 10 }} />
+          <TextInput
+            className="flex-1 py-4 text-white font-mono"
+            placeholder="e.g. 1234"
+            placeholderTextColor="rgba(189, 232, 245, 0.3)"
+            value={passkey}
+            onChangeText={setPasskey}
+            keyboardType="numeric"
+          />
+        </View>
+
+        <TouchableOpacity
+          className="bg-accent p-4 rounded-xl items-center shadow-lg active:bg-accent/80"
+          onPress={handleEncrypt}
+        >
+          <Text className="text-primary font-bold uppercase tracking-wider">🔒 Encrypt Data</Text>
+        </TouchableOpacity>
       </View>
 
       {/* SECTION 2: THE DATABASE VIEW */}
       {encryptedBlob ? (
-        <View className="bg-secondary/50 p-5 rounded-2xl mb-6 border-l-4 border-orange-400">
-          <Text className="font-bold mb-2 text-orange-200">💾 Stored in DB (Manager View):</Text>
-          <Text className="font-mono text-highlight/70 text-[10px] leading-4">{encryptedBlob.substring(0, 100)}...</Text>
+        <View className="bg-orange-500/10 p-5 rounded-2xl mb-6 border-l-4 border-orange-500">
+          <View className="flex-row items-center mb-2">
+            <Ionicons name="server-outline" size={20} color="#FDBA74" style={{ marginRight: 8 }} />
+            <Text className="font-bold text-orange-200">Stored in Database (Raw)</Text>
+          </View>
+          <Text className="font-mono text-orange-200/70 text-[10px] leading-4 bg-black/20 p-2 rounded-lg">{encryptedBlob.substring(0, 150)}...</Text>
         </View>
       ) : null}
 
       {/* SECTION 3: DECRYPT */}
-      <View className="bg-secondary p-5 rounded-2xl mb-6 border border-accent/20">
-        <Text className="font-bold mb-2 text-highlight">3. Unlock (Try WRONG key):</Text>
+      <View className="bg-secondary/20 p-6 rounded-3xl mb-6 border border-accent/20">
+        <View className="flex-row items-center mb-4 border-b border-accent/10 pb-2">
+          <Ionicons name="key-outline" size={24} color="#BDE8F5" style={{ marginRight: 10 }} />
+          <Text className="font-bold text-lg text-highlight">Decryption Lab</Text>
+        </View>
+
+        <Text className="text-xs font-bold text-accent/60 mb-2 uppercase tracking-wider">3. Unlock (Try WRONG key)</Text>
         <TextInput
-          className="bg-primary/50 border border-accent/30 p-3 mb-6 rounded-xl text-white"
+          className="bg-primary/50 border border-accent/30 p-4 mb-6 rounded-xl text-white font-mono"
           placeholder="Enter Passkey..."
-          placeholderTextColor="#BDE8F5"
+          placeholderTextColor="rgba(189, 232, 245, 0.3)"
           value={decryptionKey}
           onChangeText={setDecryptionKey}
+          keyboardType="numeric"
         />
-        <Button title="DECRYPT" onPress={handleDecrypt} color="#22c55e" />
+
+        <TouchableOpacity
+          className="bg-green-500/80 p-4 rounded-xl items-center shadow-lg active:bg-green-600 border border-green-400/30"
+          onPress={handleDecrypt}
+        >
+          <View className="flex-row items-center">
+            <Ionicons name="open-outline" size={20} color="white" style={{ marginRight: 8 }} />
+            <Text className="text-white font-bold uppercase tracking-wider">Decrypt</Text>
+          </View>
+        </TouchableOpacity>
       </View>
 
       {/* SECTION 4: RESULT */}
-      <View className="bg-secondary p-5 rounded-2xl mb-6 border border-accent/20">
-        <Text className="font-bold mb-2 text-highlight">Result:</Text>
-        <Text className="text-xl text-accent mt-2 font-bold">{finalResult || "Waiting..."}</Text>
+      <View className="bg-secondary p-6 rounded-3xl mb-6 border border-accent/20">
+        <Text className="font-bold mb-2 text-highlight uppercase tracking-wider text-xs">Decryption Result</Text>
+        <View className="bg-primary/40 p-4 rounded-xl border border-accent/10 min-h-[60px] justify-center">
+          <Text className="text-xl text-white font-bold text-center">
+            {finalResult || <Text className="text-accent/30 italic">Waiting for input...</Text>}
+          </Text>
+        </View>
       </View>
 
     </ScrollView>
