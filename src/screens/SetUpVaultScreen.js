@@ -1,16 +1,18 @@
 import React, { useState, useContext } from 'react';
 import {
-    View, Text, TextInput, TouchableOpacity, StyleSheet,
+    View, Text, TextInput, TouchableOpacity,
     Alert, ActivityIndicator, KeyboardAvoidingView, Platform
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../context/AuthContext';
 
-export default function SetupVaultScreen({ navigation }) {
+export default function SetupVaultScreen() { // Removed navigation prop
     const { setupVault } = useContext(AuthContext);
 
     const [passkey, setPasskey] = useState('');
     const [confirmPasskey, setConfirmPasskey] = useState('');
     const [loading, setLoading] = useState(false);
+    const [showPasskey, setShowPasskey] = useState(false);
 
     const handleCreate = async () => {
         // 1. Validation
@@ -32,9 +34,9 @@ export default function SetupVaultScreen({ navigation }) {
         setLoading(false);
 
         if (success) {
-            Alert.alert("✅ Vault Ready", "Your secure journal is set up.", [
-                { text: "Open Journal", onPress: () => navigation.replace('Journal') }
-            ]);
+            // SUCCESS: The App.js RootNavigator will automatically switch to "MainTabs"
+            // because isVaultInitialized becomes true in AuthContext.
+            // No manual navigation needed.
         } else {
             Alert.alert("Error", "Could not setup vault. Please try again.");
         }
@@ -43,102 +45,80 @@ export default function SetupVaultScreen({ navigation }) {
     return (
         <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : "height"}
-            style={styles.container}
+            className="flex-1 bg-primary"
         >
-            <View style={styles.content}>
-                <Text style={styles.icon}>🛡️</Text>
-                <Text style={styles.title}>Secure Your Vault</Text>
-
-                <Text style={styles.warning}>
-                    Create a Passkey that is known only to you.
-                    {"\n\n"}
-                    <Text style={{ fontWeight: 'bold', color: '#d32f2f' }}>
-                        ⚠️ If you lose this passkey, your journal entries cannot be recovered by anyone, including us.
+            <View className="flex-1 p-8 justify-center">
+                <View className="items-center mb-8">
+                    <View className="bg-secondary/30 p-6 rounded-full border border-accent/20 mb-6 shadow-lg shadow-accent/10">
+                        <Ionicons name="shield-checkmark-outline" size={80} color="#BDE8F5" />
+                    </View>
+                    <Text className="text-4xl font-bold font-matanya text-center text-highlight tracking-widest">
+                        Secure Your Vault
                     </Text>
-                </Text>
-
-                <View style={styles.inputContainer}>
-                    <Text style={styles.label}>Create Passkey</Text>
-                    <TextInput
-                        style={styles.input}
-                        placeholder="e.g. 1111"
-                        placeholderTextColor="#aaa"
-                        secureTextEntry
-                        keyboardType="default" // Or 'default' for alphanumeric
-                        value={passkey}
-                        onChangeText={setPasskey}
-                        maxLength={6}
-                    />
                 </View>
 
-                <View style={styles.inputContainer}>
-                    <Text style={styles.label}>Confirm Passkey</Text>
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Re-enter passkey"
-                        placeholderTextColor="#aaa"
-                        secureTextEntry
-                        keyboardType="numeric"
-                        value={confirmPasskey}
-                        onChangeText={setConfirmPasskey}
-                        maxLength={6}
-                    />
+                <View className="bg-secondary/40 p-5 rounded-2xl mb-8 border-l-4 border-orange-500 shadow-sm">
+                    <Text className="text-white leading-6 text-base">
+                        Create a Passkey that is known only to you.
+                        {"\n\n"}
+                        <Text className="font-bold text-orange-300 flex-row items-center">
+                            <Ionicons name="warning" size={16} color="#FDBA74" /> If you lose this passkey, your journal entries cannot be recovered by anyone, including us.
+                        </Text>
+                    </Text>
+                </View>
+
+                <View className="mb-6">
+                    <Text className="text-sm font-bold text-highlight/70 mb-3 uppercase tracking-wider ml-1">Create Passkey</Text>
+                    <View className="flex-row items-center bg-secondary/80 border border-accent/30 rounded-2xl px-4 py-2">
+                        <Ionicons name="key-outline" size={24} color="#BDE8F5" style={{ marginRight: 10 }} />
+                        <TextInput
+                            className="flex-1 text-white text-xl py-3 tracking-widest placeholder:text-highlight/30"
+                            placeholder="e.g. 1111"
+                            placeholderTextColor="rgba(189, 232, 245, 0.3)"
+                            secureTextEntry={!showPasskey}
+                            keyboardType="numeric"
+                            value={passkey}
+                            onChangeText={setPasskey}
+                            maxLength={6}
+                        />
+                        <TouchableOpacity onPress={() => setShowPasskey(!showPasskey)}>
+                            <Ionicons name={showPasskey ? "eye-outline" : "eye-off-outline"} size={22} color="rgba(189, 232, 245, 0.6)" />
+                        </TouchableOpacity>
+                    </View>
+                </View>
+
+                <View className="mb-10">
+                    <Text className="text-sm font-bold text-highlight/70 mb-3 uppercase tracking-wider ml-1">Confirm Passkey</Text>
+                    <View className="flex-row items-center bg-secondary/80 border border-accent/30 rounded-2xl px-4 py-2">
+                        <Ionicons name="checkmark-circle-outline" size={24} color="#BDE8F5" style={{ marginRight: 10 }} />
+                        <TextInput
+                            className="flex-1 text-white text-xl py-3 tracking-widest placeholder:text-highlight/30"
+                            placeholder="Re-enter passkey"
+                            placeholderTextColor="rgba(189, 232, 245, 0.3)"
+                            secureTextEntry={!showPasskey}
+                            keyboardType="numeric"
+                            value={confirmPasskey}
+                            onChangeText={setConfirmPasskey}
+                            maxLength={6}
+                        />
+                    </View>
                 </View>
 
                 <TouchableOpacity
-                    style={[styles.button, loading && styles.buttonDisabled]}
+                    className={`bg-accent p-5 rounded-2xl items-center mt-2 shadow-lg shadow-accent/20 flex-row justify-center space-x-2 ${loading ? 'opacity-70' : ''}`}
                     onPress={handleCreate}
                     disabled={loading}
                 >
                     {loading ? (
-                        <ActivityIndicator color="white" />
+                        <ActivityIndicator color="#0F2854" />
                     ) : (
-                        <Text style={styles.buttonText}>🔒 Encrypt & Create Vault</Text>
+                        <>
+                            <Ionicons name="lock-closed" size={24} color="#0F2854" style={{ marginRight: 8 }} />
+                            <Text className="text-primary text-xl font-bold uppercase tracking-wider">Encrypt & Create</Text>
+                        </>
                     )}
                 </TouchableOpacity>
             </View>
         </KeyboardAvoidingView>
     );
 }
-
-const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#fff' },
-    content: { flex: 1, padding: 30, justifyContent: 'center' },
-    icon: { fontSize: 60, textAlign: 'center', marginBottom: 20 },
-    title: { fontSize: 28, fontWeight: 'bold', textAlign: 'center', color: '#333', marginBottom: 20 },
-    warning: {
-        backgroundColor: '#fff3e0',
-        padding: 15,
-        borderRadius: 8,
-        color: '#e65100',
-        lineHeight: 22,
-        marginBottom: 30,
-        borderLeftWidth: 4,
-        borderLeftColor: '#ff9800'
-    },
-    inputContainer: { marginBottom: 20 },
-    label: { fontSize: 14, fontWeight: '600', color: '#555', marginBottom: 8, textTransform: 'uppercase' },
-    input: {
-        backgroundColor: '#f5f5f5',
-        padding: 15,
-        borderRadius: 10,
-        fontSize: 18,
-        borderWidth: 1,
-        borderColor: '#e0e0e0',
-        color: '#333'
-    },
-    button: {
-        backgroundColor: '#000',
-        padding: 18,
-        borderRadius: 12,
-        alignItems: 'center',
-        marginTop: 20,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 5,
-        elevation: 5
-    },
-    buttonDisabled: { backgroundColor: '#999' },
-    buttonText: { color: 'white', fontSize: 18, fontWeight: 'bold' }
-});

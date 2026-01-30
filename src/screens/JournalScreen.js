@@ -1,16 +1,17 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, Alert, Keyboard, TouchableOpacity, Image, ScrollView } from 'react-native';
+import { View, Text, TextInput, Alert, Keyboard, TouchableOpacity, Image, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Audio } from 'expo-av';
 import { AuthContext } from '../context/AuthContext';
-import * as SecureStore from 'expo-secure-store'; // Needed for reset button
+
 import api from '../services/api';
 import CryptoService from '../services/CryptoService';
 
 export default function JournalScreen() {
-    const { userToken, journalKey, unlockVault, userSalt, unlockWithBiometrics, logout } = useContext(AuthContext);
+    const { userToken, journalKey, unlockVault, unlockWithBiometrics, logout } = useContext(AuthContext);
 
     // --- STATE ---
     const [entryType, setEntryType] = useState('JOURNAL');
@@ -122,25 +123,29 @@ export default function JournalScreen() {
 
     const switchMode = (newMode) => {
         if (newMode === entryType) return;
-        setIsEditable(true);
-        if (newMode === 'THOUGHT') {
-            const currentJournalState = { text, images, voiceNotes };
-            setJournalDraft(currentJournalState);
-            saveDraftToStorage('JOURNAL', currentJournalState);
-            setText(thoughtDraft.text);
-            setImages(thoughtDraft.images);
-            setVoiceNotes(thoughtDraft.voiceNotes);
-            setThoughtTitle(thoughtDraft.title);
-            setEntryType('THOUGHT');
-        } else {
-            const currentThoughtState = { text, images, voiceNotes, title: thoughtTitle };
-            setThoughtDraft(currentThoughtState);
-            saveDraftToStorage('THOUGHT', currentThoughtState);
-            setText(journalDraft.text);
-            setImages(journalDraft.images);
-            setVoiceNotes(journalDraft.voiceNotes);
-            setEntryType('JOURNAL');
-        }
+
+        // Defer state updates to prevent navigation context timing issues
+        requestAnimationFrame(() => {
+            setIsEditable(true);
+            if (newMode === 'THOUGHT') {
+                const currentJournalState = { text, images, voiceNotes };
+                setJournalDraft(currentJournalState);
+                saveDraftToStorage('JOURNAL', currentJournalState);
+                setText(thoughtDraft.text);
+                setImages(thoughtDraft.images);
+                setVoiceNotes(thoughtDraft.voiceNotes);
+                setThoughtTitle(thoughtDraft.title);
+                setEntryType('THOUGHT');
+            } else {
+                const currentThoughtState = { text, images, voiceNotes, title: thoughtTitle };
+                setThoughtDraft(currentThoughtState);
+                saveDraftToStorage('THOUGHT', currentThoughtState);
+                setText(journalDraft.text);
+                setImages(journalDraft.images);
+                setVoiceNotes(journalDraft.voiceNotes);
+                setEntryType('JOURNAL');
+            }
+        });
     };
 
     const saveDraftToStorage = async (type, data) => {
@@ -276,95 +281,233 @@ export default function JournalScreen() {
     };
 
     return (
-        <View style={styles.container}>
-            <View style={styles.header}>
+        <View className="flex-1 bg-primary pt-12 px-6">
+            {/* --- HEADER --- */}
+            <View className="flex-row justify-between items-center mb-8">
                 <View>
-                    <Text style={styles.date}>{new Date().toDateString()}</Text>
-                    <Text style={styles.status}>{journalKey ? "🔓 Vault Open" : "📱 Local Mode"}</Text>
+                    <Text className="text-3xl mt-2 text-highlight font-matanya tracking-widest uppercase">
+                        {new Date().toDateString()}
+                    </Text>
+                    <View className="flex-row items-center mt-2">
+                        <Ionicons
+                            name={entryType === 'JOURNAL' ? "book-outline" : "bulb-outline"}
+                            size={20}
+                            color="#fff"
+                            style={{ marginRight: 8, opacity: 0.8 }}
+                        />
+                        <Text className="text-accent/80 text-lg font-semibold tracking-wider uppercase">
+                            {entryType === 'JOURNAL' ? "Daily Log" : "Deep Thought"}
+                        </Text>
+                    </View>
                 </View>
-                <TouchableOpacity onPress={logout} style={styles.logoutBtn}>
-                    <Text style={{ fontSize: 18 }}>🚪 Logout</Text>
+                <TouchableOpacity onPress={logout} className="bg-secondary/40 p-3 rounded-full border border-accent/20">
+                    <Ionicons name="log-out-outline" size={24} color="#BDE8F5" />
                 </TouchableOpacity>
             </View>
 
-            <View style={styles.toggleContainer}>
-                <TouchableOpacity style={[styles.toggleBtn, entryType === 'JOURNAL' && styles.toggleBtnActive]} onPress={() => switchMode('JOURNAL')}>
-                    <Text style={[styles.toggleText, entryType === 'JOURNAL' && styles.toggleTextActive]}>📖 Daily Log</Text>
+            {/* --- SEGMENTED CONTROL --- */}
+            <View style={styles.segmentContainer}>
+                <TouchableOpacity
+                    style={[styles.segmentButton, entryType === 'JOURNAL' && styles.segmentButtonActive]}
+                    onPress={() => switchMode('JOURNAL')}
+                >
+                    <Ionicons name="book-outline" size={16} color={entryType === 'JOURNAL' ? "#BDE8F5" : "rgba(189, 232, 245, 0.5)"} />
+                    <Text style={[styles.segmentText, entryType === 'JOURNAL' && styles.segmentTextActive]}>JOURNAL</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.toggleBtn, entryType === 'THOUGHT' && styles.toggleBtnActive]} onPress={() => switchMode('THOUGHT')}>
-                    <Text style={[styles.toggleText, entryType === 'THOUGHT' && styles.toggleTextActive]}>💡 Thought</Text>
+                <TouchableOpacity
+                    style={[styles.segmentButton, entryType === 'THOUGHT' && styles.segmentButtonActive]}
+                    onPress={() => switchMode('THOUGHT')}
+                >
+                    <Ionicons name="bulb-outline" size={16} color={entryType === 'THOUGHT' ? "#BDE8F5" : "rgba(189, 232, 245, 0.5)"} />
+                    <Text style={[styles.segmentText, entryType === 'THOUGHT' && styles.segmentTextActive]}>THOUGHT</Text>
                 </TouchableOpacity>
             </View>
 
-            {entryType === 'THOUGHT' && (
-                <TextInput
-                    style={[styles.titleInput, !isEditable && styles.inputDisabled]}
-                    placeholder="Title"
-                    value={thoughtTitle}
-                    onChangeText={setThoughtTitle}
-                    editable={isEditable}
-                />
-            )}
+            {/* --- CONTENT AREA --- */}
+            <View className="flex-1 bg-secondary/20 rounded-3xl p-4 border border-accent/10 mb-4">
+                {entryType === 'THOUGHT' && (
+                    <TextInput
+                        style={{ fontSize: 24, color: 'white', marginBottom: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.2)', paddingBottom: 8 }}
+                        placeholder="Title your thought..."
+                        placeholderTextColor="rgba(189, 232, 245, 0.3)"
+                        value={thoughtTitle}
+                        onChangeText={setThoughtTitle}
+                        editable={isEditable}
+                    />
+                )}
 
-            <View style={{ flex: 1 }}>
                 <TextInput
-                    style={[styles.editor, !isEditable && styles.inputDisabled]}
+                    className={`flex-1 text-lg text-white/90 leading-7 ${!isEditable ? 'opacity-80' : ''}`}
                     multiline
-                    placeholder={entryType === 'JOURNAL' ? "How was your day?" : "What's on your mind?"}
+                    placeholder={entryType === 'JOURNAL' ? "Write about your day..." : "What's on your mind?"}
+                    placeholderTextColor="rgba(189, 232, 245, 0.3)"
                     value={text}
                     onChangeText={setText}
                     textAlignVertical="top"
                     editable={isEditable}
                 />
+
                 {!isEditable && (
-                    <TouchableOpacity style={styles.unlockBtn} onPress={() => setIsEditable(true)}>
-                        <Text style={{ fontSize: 20 }}>✏️</Text>
+                    <TouchableOpacity
+                        className="absolute bottom-4 right-4 bg-accent p-4 rounded-full shadow-lg shadow-black/40"
+                        onPress={() => setIsEditable(true)}
+                    >
+                        <Ionicons name="pencil" size={24} color="#0F2854" />
                     </TouchableOpacity>
                 )}
             </View>
 
+            {/* --- MEDIA PREVIEW CAROUSEL --- */}
             {images.length > 0 && (
-                <View style={{ height: 80, marginBottom: 10 }}>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                        {images.map((uri, i) => <Image key={i} source={{ uri }} style={{ width: 80, height: 80, borderRadius: 10, marginRight: 10 }} />)}
+                <View className="h-32 mb-4">
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={{ paddingRight: 20, paddingTop: 12, paddingLeft: 4 }}
+                    >
+                        {images.map((uri, i) => (
+                            <View key={i} className="relative mr-4">
+                                <Image source={{ uri }} className="w-24 h-24 rounded-2xl border border-accent/30" />
+                                <TouchableOpacity
+                                    className="absolute -top-3 -right-3 bg-red-500 rounded-full p-1.5 border-2 border-primary z-10 shadow-sm"
+                                    onPress={() => {
+                                        const newImages = [...images];
+                                        newImages.splice(i, 1);
+                                        setImages(newImages);
+                                    }}
+                                    disabled={!isEditable}
+                                >
+                                    <Ionicons name="close" size={12} color="white" />
+                                </TouchableOpacity>
+                            </View>
+                        ))}
                     </ScrollView>
                 </View>
             )}
 
-            <View style={[styles.actionArea, !isEditable && { opacity: 1.0 }]}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 }}>
-                    <Button title="📸 Photo" onPress={pickImage} disabled={!isEditable} />
-                    <Button title={recording ? "⏹ Stop" : "🎤 Voice"} onPress={recording ? stopRecording : startRecording} color={recording ? "red" : "blue"} disabled={!isEditable} />
+            {/* --- VOICE NOTES PREVIEW --- */}
+            {voiceNotes.length > 0 && (
+                <View className="mb-4">
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={{ paddingRight: 20, paddingLeft: 4, paddingTop: 12 }}
+                    >
+                        {voiceNotes.map((uri, i) => (
+                            <View key={i} className="relative mr-3">
+                                <View className="bg-secondary/50 border border-accent/30 rounded-2xl px-4 py-3 flex-row items-center">
+                                    <View className="bg-accent/20 p-2 rounded-full mr-3">
+                                        <Ionicons name="mic" size={20} color="#BDE8F5" />
+                                    </View>
+                                    <Text className="text-highlight font-semibold">Voice {i + 1}</Text>
+                                </View>
+                                <TouchableOpacity
+                                    className="absolute -top-2 -right-2 bg-red-500 rounded-full p-1.5 border-2 border-primary z-10 shadow-sm"
+                                    onPress={() => {
+                                        const newVoiceNotes = [...voiceNotes];
+                                        newVoiceNotes.splice(i, 1);
+                                        setVoiceNotes(newVoiceNotes);
+                                    }}
+                                    disabled={!isEditable}
+                                >
+                                    <Ionicons name="close" size={12} color="white" />
+                                </TouchableOpacity>
+                            </View>
+                        ))}
+                    </ScrollView>
                 </View>
-                {voiceNotes.length > 0 && <Text style={{ marginBottom: 10, color: 'green', textAlign: 'center' }}>{voiceNotes.length} Voice Note(s) recorded</Text>}
+            )}
 
-                <View style={styles.buttonRow}>
-                    <Button title="Save Draft" onPress={handleManualSave} color="#666" />
-                    <View style={{ width: 20 }} />
-                    <Button title={uploading ? "Encrypting..." : `🔒 Sync ${entryType === 'THOUGHT' ? "Thought" : "Log"}`} onPress={handleSyncToCloud} disabled={uploading} color="#8a2be2" />
-                </View>
+            {/* --- UNIFIED ACTION GRID --- */}
+            <View className={`mb-6 flex-row gap-4 ${!isEditable ? 'opacity-100' : ''}`}>
+
+                {/* 1. PHOTO */}
+                <TouchableOpacity
+                    className="flex-1 bg-secondary/50 py-4 rounded-2xl items-center justify-center border border-accent/20 active:bg-secondary"
+                    onPress={pickImage}
+                    disabled={!isEditable}
+                >
+                    <Ionicons name="image-outline" size={24} color={!isEditable ? "#4988C4" : "#BDE8F5"} />
+                    <Text className={`text-[10px] font-bold mt-2 uppercase tracking-wider ${!isEditable ? "text-accent/50" : "text-highlight"}`}>
+                        Image
+                    </Text>
+                </TouchableOpacity>
+
+                {/* 2. VOICE */}
+                <TouchableOpacity
+                    className={`flex-1 py-4 rounded-2xl items-center justify-center border active:bg-secondary ${recording ? "bg-red-500/10 border-red-500/50" : "bg-secondary/50 border-accent/20"}`}
+                    onPress={recording ? stopRecording : startRecording}
+                    disabled={!isEditable}
+                >
+                    <Ionicons name={recording ? "stop" : "mic-outline"} size={24} color={recording ? "#FF6B6B" : (!isEditable ? "#4988C4" : "#BDE8F5")} />
+                    <Text className={`text-[10px] font-bold mt-2 uppercase tracking-wider ${recording ? "text-red-400" : (!isEditable ? "text-accent/50" : "text-highlight")}`}>
+                        {recording ? "Stop" : "Voice"}
+                    </Text>
+                </TouchableOpacity>
+
+                {/* 3. SAVE DRAFT */}
+                <TouchableOpacity
+                    className="flex-1 bg-secondary/50 py-4 rounded-2xl items-center justify-center border border-accent/20 active:bg-secondary"
+                    onPress={handleManualSave}
+                >
+                    <Ionicons name="save-outline" size={24} color="#BDE8F5" />
+                    <Text className="text-highlight text-[10px] font-bold mt-2 uppercase tracking-wider">
+                        Draft
+                    </Text>
+                </TouchableOpacity>
+
+                {/* 4. SYNC */}
+                <TouchableOpacity
+                    className={`flex-1 py-4 rounded-2xl items-center justify-center border active:opacity-90 shadow-sm ${uploading ? 'bg-accent/50 border-accent/50' : 'bg-accent border-accent'}`}
+                    onPress={handleSyncToCloud}
+                    disabled={uploading}
+                >
+                    {uploading ? (
+                        <ActivityIndicator size="small" color="#0F2854" />
+                    ) : (
+                        <>
+                            <Ionicons name="lock-closed" size={24} color="#0F2854" />
+                            <Text className="text-primary text-[10px] font-bold mt-2 uppercase tracking-wider">
+                                Sync
+                            </Text>
+                        </>
+                    )}
+                </TouchableOpacity>
+
             </View>
 
-            {/* ⚠️ RESET BUTTON: ADDED HERE TO FIX YOUR CORRUPTED STATE */}
-            {/* <TouchableOpacity
-                onPress={async () => {
-                    await AsyncStorage.clear();
-                    await SecureStore.deleteItemAsync('user_passkey');
-                    alert("App Wiped. Please Restart & Login to Fix Security.");
-                }}
-                style={{ marginTop: 10, padding: 10, backgroundColor: '#ffcccc', borderRadius: 5 }}
-            >
-                {/* <Text style={{ color: 'red', textAlign: 'center', fontWeight: 'bold' }}>⚠️ RESET & FIX APP</Text> */}
-            {/* </TouchableOpacity> */} 
-
+            {/* --- MODAL --- */}
             {showSyncModal && (
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <Text style={{ marginBottom: 10, textAlign: 'center', fontWeight: 'bold' }}>{modalMessage || "Enter Passkey to Unlock Vault"}</Text>
-                        <TextInput style={styles.modalInput} placeholder="Passkey" secureTextEntry value={passkeyInput} onChangeText={setPasskeyInput} />
-                        <Button title="Unlock & Upload" onPress={handleUnlockAndSync} />
-                        <TouchableOpacity onPress={() => { setShowSyncModal(false); setModalMessage(null); }}>
-                            <Text style={{ color: 'red', textAlign: 'center', marginTop: 15 }}>Cancel</Text>
+                <View className="absolute inset-0 bg-primary/95 justify-center items-center px-6">
+                    <View className="w-full bg-secondary p-8 rounded-3xl border border-accent/30 shadow-2xl">
+                        <View className="items-center mb-6">
+                            <View className="bg-accent/20 p-4 rounded-full mb-4">
+                                <Ionicons name="shield-checkmark" size={48} color="#BDE8F5" />
+                            </View>
+                            <Text className="font-matanya text-3xl text-white text-center">{modalMessage || "Unlock Vault"}</Text>
+                            <Text className="text-accent text-center mt-2">Enter your passkey to encrypt this entry.</Text>
+                        </View>
+
+                        <TextInput
+                            className="bg-primary/50 border border-accent/50 p-5 rounded-2xl mb-8 text-white text-center text-2xl tracking-[5px] font-bold"
+                            placeholder="Unlock"
+                            placeholderTextColor="rgba(189, 232, 245, 0.2)"
+                            secureTextEntry
+                            value={passkeyInput}
+                            onChangeText={setPasskeyInput}
+                            keyboardType="numeric"
+                            autoFocus
+                        />
+
+                        <TouchableOpacity
+                            className="bg-accent py-4 rounded-2xl items-center mb-4 shadow-lg shadow-black/20"
+                            onPress={handleUnlockAndSync}
+                        >
+                            <Text className="text-primary font-bold text-lg tracking-wider">UNLOCK & UPLOAD</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity onPress={() => { setShowSyncModal(false); setModalMessage(null); }} className="py-2">
+                            <Text className="text-red-400 text-center font-bold tracking-wide">CANCEL</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -374,23 +517,38 @@ export default function JournalScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, padding: 20, paddingTop: 50, backgroundColor: '#f8f9fa' },
-    header: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
-    date: { fontSize: 18, fontWeight: 'bold' },
-    status: { fontSize: 12, color: 'blue', marginTop: 4 },
-    logoutBtn: { backgroundColor: '#ffebee', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#ffcdd2', justifyContent: 'center' },
-    toggleContainer: { flexDirection: 'row', backgroundColor: '#e0e0e0', borderRadius: 8, padding: 4, marginBottom: 10 },
-    toggleBtn: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 6 },
-    toggleBtnActive: { backgroundColor: 'white', shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 2 },
-    toggleText: { fontWeight: '600', color: '#666' },
-    toggleTextActive: { color: '#000' },
-    titleInput: { backgroundColor: 'white', padding: 12, borderRadius: 8, marginBottom: 10, fontSize: 16, borderWidth: 1, borderColor: '#ddd', fontWeight: 'bold' },
-    editor: { flex: 1, backgroundColor: 'white', borderRadius: 10, padding: 15, fontSize: 16, marginBottom: 10, borderWidth: 1, borderColor: '#eee' },
-    inputDisabled: { backgroundColor: '#e0e0e0', color: '#555' },
-    unlockBtn: { position: 'absolute', top: 10, right: 10, backgroundColor: 'white', padding: 8, borderRadius: 20, elevation: 3, shadowColor: '#000', shadowOpacity: 0.2 },
-    actionArea: { marginBottom: 10 },
-    buttonRow: { flexDirection: 'row', justifyContent: 'center' },
-    modalOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-    modalContent: { backgroundColor: 'white', padding: 25, borderRadius: 15, width: '80%', elevation: 5 },
-    modalInput: { borderWidth: 1, borderColor: '#ccc', padding: 10, borderRadius: 5, marginBottom: 15 },
+    segmentContainer: {
+        flexDirection: 'row',
+        backgroundColor: 'rgba(28, 77, 141, 0.3)', // secondary/30
+        padding: 4,
+        borderRadius: 16,
+        marginBottom: 24,
+        borderWidth: 1,
+        borderColor: 'rgba(73, 136, 196, 0.2)', // accent/20
+    },
+    segmentButton: {
+        flex: 1,
+        paddingVertical: 12,
+        alignItems: 'center',
+        borderRadius: 12,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        gap: 8,
+    },
+    segmentButtonActive: {
+        backgroundColor: '#1C4D8D', // secondary
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 1,
+        elevation: 1,
+    },
+    segmentText: {
+        fontWeight: 'bold',
+        letterSpacing: 0.5,
+        color: 'rgba(73, 136, 196, 0.5)', // accent/50
+    },
+    segmentTextActive: {
+        color: '#BDE8F5', // highlight
+    },
 });

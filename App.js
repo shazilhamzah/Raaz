@@ -1,9 +1,11 @@
-import React, { useContext } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'; // <--- NEW IMPORT
-import { Ionicons } from '@expo/vector-icons'; // <--- Icons for the bar
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { useFonts } from 'expo-font';
 
 // Context
 import { AuthProvider, AuthContext } from './src/context/AuthContext';
@@ -15,31 +17,32 @@ import LogsScreen from './src/screens/LogsScreen';
 import SetupVaultScreen from './src/screens/SetUpVaultScreen';
 
 const Stack = createNativeStackNavigator();
-const Tab = createBottomTabNavigator(); // <--- Create Tab Object
+const Tab = createBottomTabNavigator();
 
-/**
- * 3. THE TAB NAVIGATOR (The "Lower Navbar")
- * This groups Journal and Logs together.
- */
 function MainTabs() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
-        headerShown: false, // We hide the top header because screens have their own
+        headerShown: false,
+        tabBarStyle: {
+          backgroundColor: '#0F2854',
+          borderTopWidth: 1,
+          borderTopColor: '#1C4D8D',
+          height: 60,
+          paddingBottom: 8,
+          paddingTop: 8,
+        },
+        tabBarActiveTintColor: '#BDE8F5',
+        tabBarInactiveTintColor: '#4988C4',
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
-
           if (route.name === 'Journal') {
             iconName = focused ? 'create' : 'create-outline';
           } else if (route.name === 'Logs') {
             iconName = focused ? 'file-tray-full' : 'file-tray-full-outline';
           }
-
-          // You can return any component that you like here!
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: 'black',
-        tabBarInactiveTintColor: 'gray',
       })}
     >
       <Tab.Screen name="Journal" component={JournalScreen} />
@@ -48,47 +51,66 @@ function MainTabs() {
   );
 }
 
-/**
- * 1. THE NAVIGATION LOGIC
- */
-function AppNavigator() {
+function RootNavigator() {
   const { isLoading, userToken, isVaultInitialized } = useContext(AuthContext);
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#0000ff" />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0F2854' }}>
+        <ActivityIndicator size="large" color="#4988C4" />
       </View>
     );
   }
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-
-        {userToken == null ? (
-          // --- NOT LOGGED IN ---
-          <Stack.Screen name="Login" component={LoginScreen} />
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      {userToken == null ? (
+        <Stack.Screen name="Login" component={LoginScreen} />
+      ) : (
+        !isVaultInitialized ? (
+          <Stack.Screen name="SetupVault" component={SetupVaultScreen} />
         ) : (
-          // --- LOGGED IN ---
-          !isVaultInitialized ? (
-            // A. NO VAULT -> Force Setup
-            <Stack.Screen name="SetupVault" component={SetupVaultScreen} />
-          ) : (
-            // B. VAULT READY -> SHOW TABS (Instead of single screens)
-            <Stack.Screen name="MainTabs" component={MainTabs} />
-          )
-        )}
+          <Stack.Screen name="MainTabs" component={MainTabs} />
+        )
+      )}
+    </Stack.Navigator>
+  );
+}
 
-      </Stack.Navigator>
-    </NavigationContainer>
+function LoadingScreen() {
+  return (
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0F2854' }}>
+      <ActivityIndicator size="large" color="#4988C4" />
+    </View>
   );
 }
 
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    'Matanya': require('./assets/Matanya.otf'),
+  });
+
+  // Simple ready check to be safe
+  const [isReady, setIsReady] = useState(false);
+  useEffect(() => {
+    setTimeout(() => setIsReady(true), 100);
+  }, []);
+
   return (
-    <AuthProvider>
-      <AppNavigator />
-    </AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <NavigationContainer
+          fallback={<LoadingScreen />}
+        >
+          {(!fontsLoaded || !isReady) ? (
+            <LoadingScreen />
+          ) : (
+            <RootNavigator />
+          )}
+        </NavigationContainer>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }
+
+
