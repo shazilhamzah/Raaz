@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme } from '@react-navigation/native'; // <--- Import DefaultTheme
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,9 +15,19 @@ import LoginScreen from './src/screens/LoginScreen';
 import JournalScreen from './src/screens/JournalScreen';
 import LogsScreen from './src/screens/LogsScreen';
 import SetupVaultScreen from './src/screens/SetUpVaultScreen';
+import LogDetailsScreen from './src/screens/LogDetailsScreen'; 
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
+
+// --- 1. DEFINE THEME TO FIX WHITE FLASH ---
+const MyDarkTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    background: '#0F2854', // <--- This is the magic fix!
+  },
+};
 
 function MainTabs() {
   return (
@@ -63,15 +73,24 @@ function RootNavigator() {
   }
 
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator 
+      screenOptions={{ 
+        headerShown: false,
+        // --- 2. DOUBLE SAFEGUARD ---
+        contentStyle: { backgroundColor: '#0F2854' }, 
+        animation: 'slide_from_right' 
+      }}
+    >
       {userToken == null ? (
         <Stack.Screen name="Login" component={LoginScreen} />
       ) : (
         !isVaultInitialized ? (
           <Stack.Screen name="SetupVault" component={SetupVaultScreen} />
         ) : (
-          <Stack.Screen name="MainTabs" component={MainTabs} />
-          
+          <>
+            <Stack.Screen name="MainTabs" component={MainTabs} />
+            <Stack.Screen name="LogDetails" component={LogDetailsScreen} />
+          </>
         )
       )}
     </Stack.Navigator>
@@ -91,7 +110,6 @@ export default function App() {
     'Matanya': require('./assets/Matanya.otf'),
   });
 
-  // Simple ready check to be safe
   const [isReady, setIsReady] = useState(false);
   useEffect(() => {
     setTimeout(() => setIsReady(true), 100);
@@ -100,9 +118,8 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <NavigationContainer
-          fallback={<LoadingScreen />}
-        >
+        {/* --- 3. APPLY THEME HERE --- */}
+        <NavigationContainer theme={MyDarkTheme} fallback={<LoadingScreen />}>
           {(!fontsLoaded || !isReady) ? (
             <LoadingScreen />
           ) : (
@@ -113,5 +130,3 @@ export default function App() {
     </SafeAreaProvider>
   );
 }
-
-

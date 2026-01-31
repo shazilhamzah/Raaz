@@ -5,12 +5,14 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",  // <-- CHANGE THIS to 'dark' (helps system defaults)
+    "backgroundColor": "#0F2854",  // <-- ADD THIS LINE (The Root Background)
+
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#0F2854"
     },
     "ios": {
       "supportsTablet": true
@@ -18,7 +20,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#0F2854"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.shazilhamzah.raazfrontend"
@@ -28,7 +30,16 @@
     },
     "plugins": [
       "expo-secure-store",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-navigation-bar",
+        {
+          "position": "absolute",
+          "visibility": "hidden",
+          "behavior": "overlay-swipe",
+          "backgroundColor": "#0F2854"
+        }
+      ]
     ],
     "extra": {
       "eas": {
