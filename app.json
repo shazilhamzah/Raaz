@@ -5,9 +5,8 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",  // <-- CHANGE THIS to 'dark' (helps system defaults)
-    "backgroundColor": "#0F2854",  // <-- ADD THIS LINE (The Root Background)
-
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0F2854",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -42,9 +41,16 @@
       ]
     ],
     "extra": {
+      "expo-navigation-bar": {
+        "position": "absolute",
+        "visibility": "hidden",
+        "behavior": "overlay-swipe",
+        "backgroundColor": "#0F2854"
+      },
       "eas": {
-        "projectId": "e3fad4db-81d1-409d-bfe5-db89eb0a40bc"
+        "projectId": "c4875b53-0903-470e-ba5f-66e50232682e"
       }
     }
   }
 }
+ 

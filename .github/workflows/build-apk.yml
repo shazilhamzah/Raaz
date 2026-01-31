@@ -15,6 +15,12 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      # --- NEW STEP: INJECT SECRETS ---
+      # This takes the secret from GitHub Settings and writes it to a .env file
+      # so the build process can read it.
+      - name: Create .env file
+        run: echo "API_URL=${{ secrets.API_URL }}" > .env
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -30,12 +36,9 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
-      # --- 1. FIXED PREBUILD COMMAND ---
-      # Removed --no-interactive because npx expo detects CI automatically
       - name: Expo Prebuild
         run: npx expo prebuild --platform android --clean
 
-      # --- 2. Generate Keystore ---
       - name: Generate Keystore
         run: |
           cd android/app
@@ -45,7 +48,6 @@ jobs:
       - name: Make Gradlew Executable
         run: cd android && chmod +x gradlew
 
-      # --- 3. Build Release APK ---
       - name: Build Release APK
         run: |
           cd android
@@ -56,7 +58,6 @@ jobs:
             -Pandroid.injected.signing.key.password=android \
             --no-daemon
 
-      # --- 4. Upload the Release APK ---
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
