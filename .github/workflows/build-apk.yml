@@ -2,9 +2,9 @@ name: Build Android Release APK
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: ["main", "master"]
   pull_request:
-    branches: [ "main", "master" ]
+    branches: ["main", "master"]
 
 jobs:
   build:
@@ -18,24 +18,24 @@ jobs:
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
-          java-version: '17'
+          distribution: "zulu"
+          java-version: "17"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Install Dependencies
         run: npm install
 
-      # --- 1. THE MISSING FIX: PREBUILD ---
-      # This command reads app.json and generates the android/ folder with your ICON and NAME
+      # --- 1. FIXED PREBUILD COMMAND ---
+      # Removed --no-interactive because npx expo detects CI automatically
       - name: Expo Prebuild
-        run: npx expo prebuild --platform android --no-interactive --clean
+        run: npx expo prebuild --platform android --clean
 
-      # --- 2. Generate Keystore (Now that android/ folder exists) ---
+      # --- 2. Generate Keystore ---
       - name: Generate Keystore
         run: |
           cd android/app
