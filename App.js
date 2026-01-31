@@ -4,7 +4,7 @@ import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen'; // <--- 1. Import This
 
@@ -33,7 +33,11 @@ const MyDarkTheme = {
 };
 
 // --- MAIN TABS ---
+// --- MAIN TABS (FIXED FOR ANDROID BUTTONS) ---
 function MainTabs() {
+  // 1. Get the safe area insets (This detects the bottom buttons)
+  const insets = useSafeAreaInsets();
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -42,8 +46,12 @@ function MainTabs() {
           backgroundColor: '#0F2854',
           borderTopWidth: 1,
           borderTopColor: '#1C4D8D',
-          height: 60,
-          paddingBottom: 8,
+
+          // 2. DYNAMIC HEIGHT: Base height (60) + System Button Height (insets.bottom)
+          height: 60 + insets.bottom,
+
+          // 3. DYNAMIC PADDING: Push icons up so they aren't covered
+          paddingBottom: insets.bottom + 8,
           paddingTop: 8,
         },
         tabBarActiveTintColor: '#BDE8F5',

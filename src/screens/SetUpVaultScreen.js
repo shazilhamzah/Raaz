@@ -76,7 +76,7 @@ export default function SetupVaultScreen() { // Removed navigation prop
                             placeholder="e.g. 1111"
                             placeholderTextColor="rgba(189, 232, 245, 0.3)"
                             secureTextEntry={!showPasskey}
-                            keyboardType="numeric"
+                            keyboardType="default"
                             value={passkey}
                             onChangeText={setPasskey}
                             maxLength={6}
@@ -96,7 +96,7 @@ export default function SetupVaultScreen() { // Removed navigation prop
                             placeholder="Re-enter passkey"
                             placeholderTextColor="rgba(189, 232, 245, 0.3)"
                             secureTextEntry={!showPasskey}
-                            keyboardType="numeric"
+                            keyboardType="default"
                             value={confirmPasskey}
                             onChangeText={setConfirmPasskey}
                             maxLength={6}

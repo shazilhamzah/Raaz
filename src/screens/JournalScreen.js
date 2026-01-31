@@ -533,7 +533,7 @@ export default function JournalScreen() {
                             secureTextEntry
                             value={passkeyInput}
                             onChangeText={setPasskeyInput}
-                            keyboardType="numeric"
+                            keyboardType="default"
                             autoFocus
                         />
 

@@ -75,7 +75,7 @@ export default function App() {
             placeholderTextColor="rgba(189, 232, 245, 0.3)"
             value={passkey}
             onChangeText={setPasskey}
-            keyboardType="numeric"
+            keyboardType="default"
           />
         </View>
 
@@ -112,7 +112,7 @@ export default function App() {
           placeholderTextColor="rgba(189, 232, 245, 0.3)"
           value={decryptionKey}
           onChangeText={setDecryptionKey}
-          keyboardType="numeric"
+          keyboardType="default"
         />
 
         <TouchableOpacity

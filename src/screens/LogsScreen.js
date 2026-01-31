@@ -296,7 +296,7 @@ export default function LogsScreen() {
                     <Ionicons name="finger-print" size={24} color="#0F2854" style={{ marginRight: 10 }} />
                     <Text className="text-primary font-bold text-lg uppercase tracking-wider">{hasSavedPasskey ? "Biometric Unlock" : "No Biometrics"}</Text>
                 </TouchableOpacity>
-                <TextInput className="w-full border border-accent/50 p-5 rounded-2xl mb-6 bg-secondary text-white text-center text-2xl tracking-[5px] font-bold" placeholder="••••" placeholderTextColor="#B0C4DE" secureTextEntry keyboardType="numeric" value={passkeyInput} onChangeText={setPasskeyInput} maxLength={6} />
+                <TextInput className="w-full border border-accent/50 p-5 rounded-2xl mb-6 bg-secondary text-white text-center text-2xl tracking-[5px] font-bold" placeholder="••••" placeholderTextColor="#B0C4DE" secureTextEntry keyboardType="default" value={passkeyInput} onChangeText={setPasskeyInput} maxLength={6} />
                 <TouchableOpacity className="bg-secondary/50 border border-accent/50 p-4 rounded-xl w-full items-center" onPress={handleManualUnlock}>
                     <Text className="text-highlight font-bold tracking-wider">UNLOCK VAULT</Text>
                 </TouchableOpacity>
