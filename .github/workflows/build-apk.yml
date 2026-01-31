@@ -30,7 +30,12 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
-      # 1. Generate Keystore (FIXED: Deletes old file first)
+      # --- 1. THE MISSING FIX: PREBUILD ---
+      # This command reads app.json and generates the android/ folder with your ICON and NAME
+      - name: Expo Prebuild
+        run: npx expo prebuild --platform android --no-interactive --clean
+
+      # --- 2. Generate Keystore (Now that android/ folder exists) ---
       - name: Generate Keystore
         run: |
           cd android/app
@@ -40,7 +45,7 @@ jobs:
       - name: Make Gradlew Executable
         run: cd android && chmod +x gradlew
 
-      # 2. Build Release APK
+      # --- 3. Build Release APK ---
       - name: Build Release APK
         run: |
           cd android
@@ -51,7 +56,7 @@ jobs:
             -Pandroid.injected.signing.key.password=android \
             --no-daemon
 
-      # 3. Upload the Release APK
+      # --- 4. Upload the Release APK ---
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
