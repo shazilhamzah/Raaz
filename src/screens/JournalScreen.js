@@ -11,7 +11,8 @@ import api from '../services/api';
 import CryptoService from '../services/CryptoService';
 
 export default function JournalScreen() {
-    const { userToken, journalKey, unlockVault, unlockWithBiometrics, logout } = useContext(AuthContext);
+    // 1. GET USER EMAIL FROM CONTEXT
+    const { userToken, journalKey, unlockVault, unlockWithBiometrics, logout, userEmail } = useContext(AuthContext);
 
     // --- STATE ---
     const [entryType, setEntryType] = useState('JOURNAL');
@@ -31,7 +32,16 @@ export default function JournalScreen() {
     const [recording, setRecording] = useState(null);
     const [uploading, setUploading] = useState(false);
 
-    useEffect(() => { loadInitialDraft(); }, []);
+    // 2. HELPER: Generate User-Specific Storage Keys
+    const getStorageKey = (keyName) => {
+        if (!userEmail) return null;
+        return `${keyName}_${userEmail}`;
+    };
+
+    // 3. EFFECT: Load Drafts ONLY when userEmail is ready
+    useEffect(() => {
+        if (userEmail) loadInitialDraft();
+    }, [userEmail]);
 
     useEffect(() => {
         if (journalKey && staleDraft) {
@@ -42,16 +52,18 @@ export default function JournalScreen() {
     const loadInitialDraft = async () => {
         try {
             const todayStr = new Date().toDateString();
-            const jText = await AsyncStorage.getItem('draft_journal_text');
-            const jImages = await AsyncStorage.getItem('draft_journal_images');
-            const jVoice = await AsyncStorage.getItem('draft_journal_voice');
-            const jDate = await AsyncStorage.getItem('draft_journal_date');
+
+            // 4. USE SCOPED KEYS
+            const jText = await AsyncStorage.getItem(getStorageKey('draft_journal_text'));
+            const jImages = await AsyncStorage.getItem(getStorageKey('draft_journal_images'));
+            const jVoice = await AsyncStorage.getItem(getStorageKey('draft_journal_voice'));
+            const jDate = await AsyncStorage.getItem(getStorageKey('draft_journal_date'));
 
             const parsedJImages = jImages ? JSON.parse(jImages) : [];
             const parsedJVoice = jVoice ? JSON.parse(jVoice) : [];
 
             if (jDate && jDate !== todayStr && (jText || parsedJImages.length > 0)) {
-                console.log("Found stale draft");
+                console.log("Found stale draft for", userEmail);
                 setText('');
                 setImages([]);
                 setVoiceNotes([]);
@@ -81,10 +93,8 @@ export default function JournalScreen() {
 
     const processStaleDraft = async (draft) => {
         const verifiedKey = await unlockWithBiometrics();
-        // If biometrics works, it returns the KEY now.
         if (verifiedKey && typeof verifiedKey === 'string') {
             Alert.alert("🔄 Auto-Sync", `Uploading unsent entry from ${draft.date}...`);
-            // uploadStaleDraft triggers automatically via useEffect when journalKey updates
         } else {
             setModalMessage(`Found unsent entry from ${draft.date}. Enter Passkey to save it.`);
             setShowSyncModal(true);
@@ -115,7 +125,16 @@ export default function JournalScreen() {
 
             Alert.alert("✅ Saved", `Your entry from ${draft.date} has been uploaded.`);
             setStaleDraft(null);
-            await AsyncStorage.multiRemove(['draft_journal_text', 'draft_journal_images', 'draft_journal_voice', 'draft_journal_date']);
+
+            // 5. CLEANUP SCOPED KEYS
+            const keysToRemove = [
+                getStorageKey('draft_journal_text'),
+                getStorageKey('draft_journal_images'),
+                getStorageKey('draft_journal_voice'),
+                getStorageKey('draft_journal_date')
+            ];
+            await AsyncStorage.multiRemove(keysToRemove);
+
             setShowSyncModal(false); setPasskeyInput(''); setModalMessage(null);
         } catch (e) { Alert.alert("Error", "Could not upload old draft."); }
         finally { setUploading(false); }
@@ -124,7 +143,6 @@ export default function JournalScreen() {
     const switchMode = (newMode) => {
         if (newMode === entryType) return;
 
-        // Defer state updates to prevent navigation context timing issues
         requestAnimationFrame(() => {
             setIsEditable(true);
             if (newMode === 'THOUGHT') {
@@ -151,11 +169,12 @@ export default function JournalScreen() {
     const saveDraftToStorage = async (type, data) => {
         try {
             const prefix = type === 'JOURNAL' ? 'draft_journal' : 'draft_thought';
-            await AsyncStorage.setItem(`${prefix}_text`, data.text);
-            await AsyncStorage.setItem(`${prefix}_images`, JSON.stringify(data.images));
-            await AsyncStorage.setItem(`${prefix}_voice`, JSON.stringify(data.voiceNotes));
-            await AsyncStorage.setItem(`${prefix}_date`, new Date().toDateString());
-            if (type === 'THOUGHT') await AsyncStorage.setItem(`${prefix}_title`, data.title || '');
+            // 6. SAVE TO SCOPED KEYS
+            await AsyncStorage.setItem(getStorageKey(`${prefix}_text`), data.text);
+            await AsyncStorage.setItem(getStorageKey(`${prefix}_images`), JSON.stringify(data.images));
+            await AsyncStorage.setItem(getStorageKey(`${prefix}_voice`), JSON.stringify(data.voiceNotes));
+            await AsyncStorage.setItem(getStorageKey(`${prefix}_date`), new Date().toDateString());
+            if (type === 'THOUGHT') await AsyncStorage.setItem(getStorageKey(`${prefix}_title`), data.title || '');
         } catch (e) { }
     };
 
@@ -175,11 +194,9 @@ export default function JournalScreen() {
     };
 
     const handleSyncToCloud = async () => {
-        // STRICT CHECK: Do we have the Master Key?
         if (journalKey) {
             performCloudUpload(journalKey);
         } else {
-            // No Key? Force User to Unlock
             setModalMessage("Unlock Vault to Sync");
             setShowSyncModal(true);
         }
@@ -226,7 +243,13 @@ export default function JournalScreen() {
             if (entryType === 'THOUGHT') {
                 setText(''); setImages([]); setVoiceNotes([]); setThoughtTitle('');
                 setThoughtDraft({ text: '', images: [], voiceNotes: [], title: '' });
-                AsyncStorage.multiRemove(['draft_thought_text', 'draft_thought_images', 'draft_thought_voice', 'draft_thought_title', 'draft_thought_date']);
+                // 7. REMOVE SCOPED KEYS
+                const tKeys = [
+                    getStorageKey('draft_thought_text'), getStorageKey('draft_thought_images'),
+                    getStorageKey('draft_thought_voice'), getStorageKey('draft_thought_title'),
+                    getStorageKey('draft_thought_date')
+                ];
+                AsyncStorage.multiRemove(tKeys);
                 setIsEditable(true);
             } else {
                 setImages([]); setVoiceNotes([]);
@@ -245,20 +268,15 @@ export default function JournalScreen() {
     };
 
     const handleUnlockAndSync = async () => {
-        // This now runs the CANARY check inside AuthContext
-        // It returns the KEY if valid, or FALSE if invalid
         const verifiedKey = await unlockVault(passkeyInput);
-
         if (verifiedKey) {
-            // ✅ We pass the VERIFIED key directly to upload
             performCloudUpload(verifiedKey);
         } else {
-            // ❌ Canary check failed
             Alert.alert("⛔ Access Denied", "Wrong Passkey. Cannot Encrypt.");
         }
     };
 
-    // ... Media Helpers (pickImage, startRecording, stopRecording) remain same ...
+    // ... (Keep pickImage, startRecording, stopRecording, and the Render Return exactly as they were) ...
     const pickImage = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') return;
@@ -280,9 +298,11 @@ export default function JournalScreen() {
         setVoiceNotes([...voiceNotes, recording.getURI()]);
     };
 
+    // --- RENDER ---
+    // (Paste the exact Return() block you had in your question. No changes needed there.)
     return (
         <View className="flex-1 bg-primary pt-12 px-6">
-            {/* --- HEADER --- */}
+            {/* ... HEADER ... */}
             <View className="flex-row justify-between items-center mb-8">
                 <View>
                     <Text className="text-3xl mt-2 text-highlight font-matanya tracking-widest uppercase">
@@ -305,7 +325,7 @@ export default function JournalScreen() {
                 </TouchableOpacity>
             </View>
 
-            {/* --- SEGMENTED CONTROL --- */}
+            {/* ... SEGMENTED CONTROL ... */}
             <View style={styles.segmentContainer}>
                 <TouchableOpacity
                     style={[styles.segmentButton, entryType === 'JOURNAL' && styles.segmentButtonActive]}
@@ -323,7 +343,7 @@ export default function JournalScreen() {
                 </TouchableOpacity>
             </View>
 
-            {/* --- CONTENT AREA --- */}
+            {/* ... CONTENT AREA ... */}
             <View className="flex-1 bg-secondary/20 rounded-3xl p-4 border border-accent/10 mb-4">
                 {entryType === 'THOUGHT' && (
                     <TextInput
@@ -357,7 +377,7 @@ export default function JournalScreen() {
                 )}
             </View>
 
-            {/* --- MEDIA PREVIEW CAROUSEL --- */}
+            {/* ... MEDIA PREVIEW CAROUSEL ... */}
             {images.length > 0 && (
                 <View className="h-32 mb-4">
                     <ScrollView
@@ -385,7 +405,7 @@ export default function JournalScreen() {
                 </View>
             )}
 
-            {/* --- VOICE NOTES PREVIEW --- */}
+            {/* ... VOICE NOTES PREVIEW ... */}
             {voiceNotes.length > 0 && (
                 <View className="mb-4">
                     <ScrollView
@@ -418,10 +438,8 @@ export default function JournalScreen() {
                 </View>
             )}
 
-            {/* --- UNIFIED ACTION GRID --- */}
+            {/* ... UNIFIED ACTION GRID ... */}
             <View className={`mb-6 flex-row gap-4 ${!isEditable ? 'opacity-100' : ''}`}>
-
-                {/* 1. PHOTO */}
                 <TouchableOpacity
                     className="flex-1 bg-secondary/50 py-4 rounded-2xl items-center justify-center border border-accent/20 active:bg-secondary"
                     onPress={pickImage}
@@ -433,7 +451,6 @@ export default function JournalScreen() {
                     </Text>
                 </TouchableOpacity>
 
-                {/* 2. VOICE */}
                 <TouchableOpacity
                     className={`flex-1 py-4 rounded-2xl items-center justify-center border active:bg-secondary ${recording ? "bg-red-500/10 border-red-500/50" : "bg-secondary/50 border-accent/20"}`}
                     onPress={recording ? stopRecording : startRecording}
@@ -445,7 +462,6 @@ export default function JournalScreen() {
                     </Text>
                 </TouchableOpacity>
 
-                {/* 3. SAVE DRAFT */}
                 <TouchableOpacity
                     className="flex-1 bg-secondary/50 py-4 rounded-2xl items-center justify-center border border-accent/20 active:bg-secondary"
                     onPress={handleManualSave}
@@ -456,7 +472,6 @@ export default function JournalScreen() {
                     </Text>
                 </TouchableOpacity>
 
-                {/* 4. SYNC */}
                 <TouchableOpacity
                     className={`flex-1 py-4 rounded-2xl items-center justify-center border active:opacity-90 shadow-sm ${uploading ? 'bg-accent/50 border-accent/50' : 'bg-accent border-accent'}`}
                     onPress={handleSyncToCloud}
@@ -473,10 +488,9 @@ export default function JournalScreen() {
                         </>
                     )}
                 </TouchableOpacity>
-
             </View>
 
-            {/* --- MODAL --- */}
+            {/* ... MODAL ... */}
             {showSyncModal && (
                 <View className="absolute inset-0 bg-primary/95 justify-center items-center px-6">
                     <View className="w-full bg-secondary p-8 rounded-3xl border border-accent/30 shadow-2xl">

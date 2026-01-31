@@ -10,6 +10,7 @@ export const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
     const [userToken, setUserToken] = useState(null);
     const [userSalt, setUserSalt] = useState(null);
+    const [userEmail, setUserEmail] = useState(null); // <--- NEW: Track Email
     const [journalKey, setJournalKey] = useState(null);
     const [hasSavedPasskey, setHasSavedPasskey] = useState(false);
     const [isVaultInitialized, setIsVaultInitialized] = useState(false);
@@ -22,6 +23,7 @@ export const AuthProvider = ({ children }) => {
         try {
             const token = await AsyncStorage.getItem('userToken');
             const salt = await AsyncStorage.getItem('userSalt');
+            const email = await AsyncStorage.getItem('userEmail'); // <--- Load Email
             const savedPasskey = await SecureStore.getItemAsync('user_passkey');
             const canary = await AsyncStorage.getItem('auth_canary');
 
@@ -31,6 +33,7 @@ export const AuthProvider = ({ children }) => {
             if (token) {
                 setUserToken(token);
                 setUserSalt(salt);
+                setUserEmail(email); // <--- Set Email
             }
         } catch (e) { console.log("Init Error:", e); }
         setIsLoading(false);
@@ -45,8 +48,11 @@ export const AuthProvider = ({ children }) => {
 
             setUserToken(token);
             setUserSalt(encryption_salt);
+            setUserEmail(email); // <--- Save Email State
+
             await AsyncStorage.setItem('userToken', token);
             await AsyncStorage.setItem('userSalt', encryption_salt);
+            await AsyncStorage.setItem('userEmail', email); // <--- Persist Email
 
             if (canary) {
                 await AsyncStorage.setItem('auth_canary', canary);
@@ -73,12 +79,13 @@ export const AuthProvider = ({ children }) => {
 
             setUserToken(token);
             setUserSalt(encryption_salt);
+            setUserEmail(email); // <--- Save Email
+
             await AsyncStorage.setItem('userToken', token);
             await AsyncStorage.setItem('userSalt', encryption_salt);
+            await AsyncStorage.setItem('userEmail', email); // <--- Persist Email
 
-            // New users won't have a canary yet - they need to set up vault
             setIsVaultInitialized(false);
-
             alert("Account created successfully! Please set up your vault passkey.");
         } catch (e) {
             console.error("Register Error Details:", e);
@@ -89,6 +96,7 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    // ... setupVault, unlockVault, getRawKey, unlockWithBiometrics remain exactly the same ...
     const setupVault = async (newPasskey) => {
         try {
             if (!userSalt) return false;
@@ -124,7 +132,7 @@ export const AuthProvider = ({ children }) => {
 
             if (checkText !== "VALID") return false;
 
-            setJournalKey(derivedKeyHex); // GLOBAL STATE SET (Only if valid)
+            setJournalKey(derivedKeyHex);
 
             if (shouldSave) {
                 await SecureStore.setItemAsync('user_passkey', cleanPasskey);
@@ -135,10 +143,8 @@ export const AuthProvider = ({ children }) => {
         } catch (e) { return false; }
     };
 
-    // --- NEW: GET RAW KEY (For Logs "Garbage View") ---
     const getRawKey = (passkey) => {
         if (!userSalt) return null;
-        // Just derive it. Don't check validity. Don't set global state.
         return CryptoService.deriveKey(passkey.trim(), userSalt);
     };
 
@@ -163,8 +169,11 @@ export const AuthProvider = ({ children }) => {
         try {
             setUserToken(null);
             setJournalKey(null);
-            await AsyncStorage.multiRemove(['userToken', 'userSalt', 'auth_canary']);
+            setUserEmail(null); // <--- Clear Email State
+
+            await AsyncStorage.multiRemove(['userToken', 'userSalt', 'auth_canary', 'userEmail']); // <--- Remove Email from Storage
             await SecureStore.deleteItemAsync('user_passkey');
+
             setHasSavedPasskey(false);
             setIsVaultInitialized(false);
         } catch (e) { console.log("Logout Error:", e); }
@@ -173,7 +182,7 @@ export const AuthProvider = ({ children }) => {
     return (
         <AuthContext.Provider value={{
             login, register, logout, unlockVault, unlockWithBiometrics, setupVault, getRawKey,
-            isLoading, userToken, userSalt, journalKey, hasSavedPasskey, isVaultInitialized
+            isLoading, userToken, userSalt, journalKey, hasSavedPasskey, isVaultInitialized, userEmail // <--- Export userEmail
         }}>
             {children}
         </AuthContext.Provider>

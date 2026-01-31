@@ -71,6 +71,7 @@ function RootNavigator() {
           <Stack.Screen name="SetupVault" component={SetupVaultScreen} />
         ) : (
           <Stack.Screen name="MainTabs" component={MainTabs} />
+          
         )
       )}
     </Stack.Navigator>
