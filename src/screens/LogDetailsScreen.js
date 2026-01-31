@@ -193,7 +193,7 @@ export default function LogDetailsScreen({ route, navigation }) {
             <ScrollView className="flex-1 px-5 pt-6" contentContainerStyle={{ paddingBottom: 100 }}>
                 {/* --- TITLE CARD --- */}
                 <View className={`p-6 rounded-3xl mb-8 border border-accent/20 shadow-lg ${isThought ? 'bg-yellow-500/10 border-yellow-500/30' : 'bg-secondary/30'}`}>
-                    <View className="flex-row items-start gap-4">
+                    <View className="flex-row items-start gap-6">
                         <View className={`p-3 rounded-2xl ${isThought ? 'bg-yellow-500/20' : 'bg-accent/20'}`}>
                             <Ionicons name={isThought ? "bulb" : "book"} size={32} color={isThought ? "#FCD34D" : "#BDE8F5"} />
                         </View>
@@ -246,73 +246,3 @@ export default function LogDetailsScreen({ route, navigation }) {
         </View>
     );
 }
-
-
-// return (
-//         <View className="flex-1 bg-primary">
-//             {/* --- HEADER --- */}
-//             <View className="pt-12 pb-4 px-5 flex-row items-center justify-between border-b border-accent/10 bg-primary z-10">
-//                 <TouchableOpacity onPress={() => navigation.goBack()} className="bg-secondary/40 p-2 rounded-full border border-accent/20">
-//                     <Ionicons name="arrow-back" size={24} color="#BDE8F5" />
-//                 </TouchableOpacity>
-//                 <View className="items-end">
-//                     <Text className="text-accent/60 font-bold uppercase tracking-widest text-xs">Entry Date</Text>
-//                     <Text className="text-highlight font-matanya text-xl">{entry.date}</Text>
-//                 </View>
-//             </View>
-
-//             <ScrollView className="flex-1 px-5 pt-6" contentContainerStyle={{ paddingBottom: 100 }}>
-//                 {/* --- TITLE CARD --- */}
-//                 <View className={`p-6 rounded-3xl mb-8 border border-accent/20 shadow-lg ${isThought ? 'bg-yellow-500/10 border-yellow-500/30' : 'bg-secondary/30'}`}>
-//                     <View className="flex-row items-start gap-4">
-//                         <View className={`p-3 rounded-2xl ${isThought ? 'bg-yellow-500/20' : 'bg-accent/20'}`}>
-//                             <Ionicons name={isThought ? "bulb" : "book"} size={32} color={isThought ? "#FCD34D" : "#BDE8F5"} />
-//                         </View>
-//                         <View className="flex-1">
-//                             <Text className="text-accent/60 font-bold text-xs uppercase tracking-widest mb-1">
-//                                 {isThought ? "Deep Thought" : "Journal Entry"}
-//                             </Text>
-//                             <Text className="text-3xl text-white font-matanya leading-9 shadow-black/50 shadow-md">
-//                                 {entry.title || "Untitled Entry"}
-//                             </Text>
-//                         </View>
-//                     </View>
-//                 </View>
-
-//                 {/* --- TEXT CONTENT --- */}
-//                 {loading ? (
-//                     <ActivityIndicator size="large" color="#4988C4" className="mt-10" />
-//                 ) : (
-//                     <View>
-//                         <Text className="text-gray-200 text-lg leading-8 font-light tracking-wide mb-8">
-//                             {decryptedContent || <Text className="italic text-gray-500">No text content.</Text>}
-//                         </Text>
-
-//                         {/* --- MEDIA SECTION --- */}
-//                         {(entry.media?.length > 0 || entry.audio?.length > 0) && (
-//                             <View className="border-t border-accent/10 pt-6">
-//                                 <Text className="text-accent font-bold uppercase tracking-widest mb-4 opacity-70">Attachments</Text>
-
-//                                 {entry.media?.map((f, i) => <MediaViewer key={`img_${i}`} filename={f} />)}
-//                                 {entry.audio?.map((f, i) => <AudioPlayer key={`aud_${i}`} filename={f} />)}
-//                             </View>
-//                         )}
-//                     </View>
-//                 )}
-//             </ScrollView>
-
-//             {/* --- FULLSCREEN IMAGE MODAL --- */}
-//             <Modal visible={fullscreenImage !== null} transparent={true} animationType="fade" onRequestClose={() => setFullscreenImage(null)}>
-//                 <TouchableWithoutFeedback onPress={() => setFullscreenImage(null)}>
-//                     <View className="flex-1 bg-black/95 justify-center items-center">
-//                         <TouchableOpacity className="absolute top-12 right-6 z-10 bg-white/20 p-3 rounded-full" onPress={() => setFullscreenImage(null)}>
-//                             <Ionicons name="close" size={28} color="white" />
-//                         </TouchableOpacity>
-//                         {fullscreenImage && (
-//                             <Image source={{ uri: fullscreenImage }} style={{ width: Dimensions.get('window').width, height: Dimensions.get('window').height * 0.8 }} resizeMode="contain" />
-//                         )}
-//                     </View>
-//                 </TouchableWithoutFeedback>
-//             </Modal>
-//         </View>
-//     );

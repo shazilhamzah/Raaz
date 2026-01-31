@@ -144,23 +144,47 @@ export default function JournalScreen() {
         if (newMode === entryType) return;
 
         requestAnimationFrame(() => {
-            setIsEditable(true);
+            // REMOVED: setIsEditable(true); <--- This was the cause of the bug
+
             if (newMode === 'THOUGHT') {
+                // --- SWITCHING TO THOUGHT ---
+
+                // 1. Save current Journal state
                 const currentJournalState = { text, images, voiceNotes };
                 setJournalDraft(currentJournalState);
                 saveDraftToStorage('JOURNAL', currentJournalState);
+
+                // 2. Load Thought state
                 setText(thoughtDraft.text);
                 setImages(thoughtDraft.images);
                 setVoiceNotes(thoughtDraft.voiceNotes);
                 setThoughtTitle(thoughtDraft.title);
+
+                // Thoughts are usually editable by default, or you can add logic here too
+                setIsEditable(true);
                 setEntryType('THOUGHT');
+
             } else {
+                // --- SWITCHING TO JOURNAL ---
+
+                // 1. Save current Thought state
                 const currentThoughtState = { text, images, voiceNotes, title: thoughtTitle };
                 setThoughtDraft(currentThoughtState);
                 saveDraftToStorage('THOUGHT', currentThoughtState);
+
+                // 2. Load Journal state
                 setText(journalDraft.text);
                 setImages(journalDraft.images);
                 setVoiceNotes(journalDraft.voiceNotes);
+
+                // 3. CHECK CONTENT to determine editability
+                const hasContent = (journalDraft.text && journalDraft.text.trim().length > 0) ||
+                    journalDraft.images.length > 0 ||
+                    journalDraft.voiceNotes.length > 0;
+
+                // If content exists, lock it (false). If empty, edit it (true).
+                setIsEditable(!hasContent);
+
                 setEntryType('JOURNAL');
             }
         });

@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "raaz-frontend",
-    "slug": "raaz-frontend",
+    "name": "Raaz",
+    "slug": "raaz-journal",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -23,7 +23,7 @@
         "backgroundColor": "#0F2854"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.shazilhamzah.raazfrontend"
+      "package": "com.shazilhamzah.raazjournal"
     },
     "web": {
       "favicon": "./assets/favicon.png"
