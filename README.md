@@ -1,4 +1,4 @@
-APP NAME: Secure Journal (Raaz)
+[APP NAME: Secure Journal (Raaz)
 VERSION: 1.0 (Android APK)
 
 OVERVIEW:
@@ -54,4 +54,4 @@ A privacy-first, zero-knowledge journaling application that allows users to reco
 - Backend: Node.js + Express (Deployed on Render)
 - Database: MongoDB Atlas
 - File Storage: Supabase
-- Security: AES-256 Encryption, Expo SecureStore
+- Security: AES-256 Encryption, Expo SecureStore](https://github.com/shazilhamzah/Raaz)
