@@ -2,16 +2,15 @@ import React, { useState, useEffect, useContext, useRef } from 'react';
 import {
     View, Text, ScrollView, TouchableOpacity, Image,
     ActivityIndicator, Dimensions, Modal, TouchableWithoutFeedback, Alert,
-    InteractionManager // <--- 1. IMPORT THIS
+    InteractionManager
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../context/AuthContext';
 import api from '../services/api';
 import CryptoService from '../services/CryptoService';
-import { Audio } from 'expo-av';
+import { Audio, Video, ResizeMode } from 'expo-av'; // <--- Added Video
 import * as FileSystem from 'expo-file-system/legacy';
 
-// Local cache for this screen session
 const MEDIA_CACHE = new Map();
 
 export default function LogDetailsScreen({ route, navigation }) {
@@ -22,36 +21,33 @@ export default function LogDetailsScreen({ route, navigation }) {
     const [loading, setLoading] = useState(true);
     const [fullscreenImage, setFullscreenImage] = useState(null);
 
-    // Track if screen is mounted to prevent updates after going back
     const isMounted = useRef(true);
-
     const isThought = entry.type === 'THOUGHT';
 
     useEffect(() => {
         isMounted.current = true;
-
-        // 2. WAIT FOR NAVIGATION ANIMATION TO FINISH BEFORE DECRYPTING
         const task = InteractionManager.runAfterInteractions(() => {
-            decryptData();
+            if (isMounted.current) decryptData();
         });
-
         return () => {
             isMounted.current = false;
-            task.cancel(); // Cancel if user goes back quickly
+            task.cancel();
         };
     }, []);
 
     const decryptData = async () => {
-        // Double check mount status before heavy work
-        if (!isMounted.current) return;
-
-        // Force next tick to unblock UI
         setTimeout(() => {
             if (!isMounted.current) return;
 
             try {
                 const result = CryptoService.decrypt(entry.content, activeKey);
-                const text = (typeof result === 'object' && result.text) ? result.text : result;
+
+                // --- FIX: HANDLE EMPTY STRINGS CORRECTLY ---
+                // We check if 'text' property exists, not if it's truthy (which fails on "")
+                let text = result;
+                if (typeof result === 'object' && result !== null && 'text' in result) {
+                    text = result.text;
+                }
 
                 if (isMounted.current) {
                     setDecryptedContent(text);
@@ -63,56 +59,46 @@ export default function LogDetailsScreen({ route, navigation }) {
         }, 100);
     };
 
-    // --- COMPONENT: MEDIA VIEWER ---
+    // --- COMPONENT: MEDIA VIEWER (Images) ---
     const MediaViewer = ({ filename }) => {
         const [imageUrl, setImageUrl] = useState(null);
         const [loadingImg, setLoadingImg] = useState(true);
-        // We need a local ref for this specific component instance too
         const isComponentMounted = useRef(true);
 
         useEffect(() => {
             isComponentMounted.current = true;
-
-            // 3. DELAY IMAGE LOAD SLIGHTLY TO PRIORITIZE UI RESPONSE
             const timer = setTimeout(() => {
                 if (!isComponentMounted.current) return;
-
                 if (MEDIA_CACHE.has(filename)) {
                     setImageUrl(MEDIA_CACHE.get(filename));
                     setLoadingImg(false);
                 } else {
                     loadMedia();
                 }
-            }, 500); // 500ms delay to let other things settle
-
-            return () => {
-                isComponentMounted.current = false;
-                clearTimeout(timer);
-            };
+            }, 500);
+            return () => { isComponentMounted.current = false; clearTimeout(timer); };
         }, []);
 
         const loadMedia = async () => {
             try {
                 if (!isComponentMounted.current) return;
-
                 const res = await api.get(`/entries/media/${filename}`, { headers: { 'x-auth-token': userToken } });
-
-                // Heavy decryption
                 if (!isComponentMounted.current) return;
 
                 const decryptedBase64 = CryptoService.decrypt(res.data, activeKey);
-                const base64Str = (typeof decryptedBase64 === 'object' && decryptedBase64.text) ? decryptedBase64.text : decryptedBase64;
-                const finalUri = `data:image/jpeg;base64,${base64Str}`;
+                let base64Str = decryptedBase64;
+                if (typeof decryptedBase64 === 'object' && decryptedBase64 !== null && 'text' in decryptedBase64) {
+                    base64Str = decryptedBase64.text;
+                }
 
+                const finalUri = `data:image/jpeg;base64,${base64Str}`;
                 MEDIA_CACHE.set(filename, finalUri);
 
                 if (isComponentMounted.current) {
                     setImageUrl(finalUri);
                     setLoadingImg(false);
                 }
-            } catch (e) {
-                if (isComponentMounted.current) setLoadingImg(false);
-            }
+            } catch (e) { if (isComponentMounted.current) setLoadingImg(false); }
         };
 
         if (loadingImg) return <View className="w-full h-64 bg-secondary/30 rounded-2xl justify-center items-center mt-4"><ActivityIndicator color="#BDE8F5" /></View>;
@@ -121,6 +107,60 @@ export default function LogDetailsScreen({ route, navigation }) {
             <TouchableOpacity onPress={() => setFullscreenImage(imageUrl)} activeOpacity={0.9}>
                 <Image source={{ uri: imageUrl }} className="w-full h-64 rounded-2xl mt-4 bg-gray-900 border border-accent/20" resizeMode="cover" />
             </TouchableOpacity>
+        );
+    };
+
+    // --- COMPONENT: VIDEO PLAYER (New) ---
+    const VideoPlayer = ({ filename }) => {
+        const [videoUri, setVideoUri] = useState(null);
+        const [loadingVid, setLoadingVid] = useState(true);
+        const isComponentMounted = useRef(true);
+
+        useEffect(() => {
+            isComponentMounted.current = true;
+            loadVideo();
+            return () => { isComponentMounted.current = false; };
+        }, []);
+
+        const loadVideo = async () => {
+            try {
+                if (MEDIA_CACHE.has(filename)) {
+                    setVideoUri(MEDIA_CACHE.get(filename));
+                    setLoadingVid(false);
+                    return;
+                }
+
+                const res = await api.get(`/entries/media/${filename}`, { headers: { 'x-auth-token': userToken }, responseType: 'text' });
+
+                const decryptedData = CryptoService.decrypt(res.data, activeKey);
+                let base64Str = decryptedData;
+                if (typeof decryptedData === 'object' && decryptedData !== null && 'text' in decryptedData) {
+                    base64Str = decryptedData.text;
+                }
+
+                const uri = FileSystem.cacheDirectory + filename + '.mp4';
+                await FileSystem.writeAsStringAsync(uri, base64Str, { encoding: 'base64' });
+
+                MEDIA_CACHE.set(filename, uri);
+                if (isComponentMounted.current) {
+                    setVideoUri(uri);
+                    setLoadingVid(false);
+                }
+            } catch (e) { console.log("Video Error", e); if (isComponentMounted.current) setLoadingVid(false); }
+        };
+
+        if (loadingVid) return <View className="w-full h-48 bg-secondary/30 rounded-2xl justify-center items-center mt-4"><ActivityIndicator color="#BDE8F5" /></View>;
+
+        return (
+            <View className="w-full h-64 mt-4 bg-black rounded-2xl overflow-hidden border border-accent/20">
+                <Video
+                    source={{ uri: videoUri }}
+                    style={{ width: '100%', height: '100%' }}
+                    useNativeControls
+                    resizeMode={ResizeMode.CONTAIN}
+                    isLooping
+                />
+            </View>
         );
     };
 
@@ -145,11 +185,15 @@ export default function LogDetailsScreen({ route, navigation }) {
                     uri = MEDIA_CACHE.get(filename);
                 } else {
                     const res = await api.get(`/entries/media/${filename}`, { headers: { 'x-auth-token': userToken }, responseType: 'text' });
-                    const cleanData = typeof res.data === 'string' ? res.data.trim() : res.data;
-                    const result = CryptoService.decrypt(cleanData, activeKey);
-                    const base64Audio = (typeof result === 'object' && result.text) ? result.text : result;
+
+                    const decryptedData = CryptoService.decrypt(res.data, activeKey);
+                    let base64Str = decryptedData;
+                    if (typeof decryptedData === 'object' && decryptedData !== null && 'text' in decryptedData) {
+                        base64Str = decryptedData.text;
+                    }
+
                     uri = FileSystem.cacheDirectory + filename + '.m4a';
-                    await FileSystem.writeAsStringAsync(uri, base64Audio, { encoding: 'base64' });
+                    await FileSystem.writeAsStringAsync(uri, base64Str, { encoding: 'base64' });
                     MEDIA_CACHE.set(filename, uri);
                 }
 
@@ -177,23 +221,64 @@ export default function LogDetailsScreen({ route, navigation }) {
         );
     };
 
+    const handleDelete = () => {
+        Alert.alert(
+            "Delete Entry",
+            "Are you sure? This will permanently delete this log and all attached media.",
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Delete",
+                    style: "destructive", // Shows red on iOS
+                    onPress: async () => {
+                        try {
+                            setLoading(true); // Show loading while deleting
+                            await api.delete(`/entries/${entry._id}`, {
+                                headers: { 'x-auth-token': userToken }
+                            });
+
+                            // Success: Go back to list
+                            navigation.goBack();
+
+                        } catch (error) {
+                            setLoading(false);
+                            console.error(error);
+                            Alert.alert("Error", "Could not delete entry.");
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
     return (
         <View className="flex-1 bg-primary">
             {/* --- HEADER --- */}
+            {/* --- HEADER --- */}
             <View className="pt-12 pb-4 px-5 flex-row items-center justify-between border-b border-accent/10 bg-primary z-10">
+                {/* Back Button */}
                 <TouchableOpacity onPress={() => navigation.goBack()} className="bg-secondary/40 p-2 rounded-full border border-accent/20">
                     <Ionicons name="arrow-back" size={24} color="#BDE8F5" />
                 </TouchableOpacity>
-                <View className="items-end">
-                    <Text className="text-accent/60 font-bold uppercase tracking-widest text-xs">Entry Date</Text>
-                    <Text className="text-highlight font-matanya text-xl">{entry.date}</Text>
+
+                {/* Right Side: Delete + Date */}
+                <View className="flex-row items-center gap-4">
+                    <TouchableOpacity onPress={handleDelete} className="bg-red-500/20 p-2 rounded-full border border-red-500/30">
+                        <Ionicons name="trash-outline" size={20} color="#FF6B6B" />
+                    </TouchableOpacity>
+
+                    <View className="items-end">
+                        <Text className="text-accent/60 font-bold uppercase tracking-widest text-xs">Entry Date</Text>
+                        <Text className="text-highlight font-matanya text-xl">{entry.date}</Text>
+                    </View>
                 </View>
             </View>
 
             <ScrollView className="flex-1 px-5 pt-6" contentContainerStyle={{ paddingBottom: 100 }}>
-                {/* --- TITLE CARD --- */}
-                <View className={`p-6 rounded-3xl mb-8 border border-accent/20 shadow-lg ${isThought ? 'bg-yellow-500/10 border-yellow-500/30' : 'bg-secondary/30'}`}>
-                    <View className="flex-row items-start gap-6">
+
+                {/* --- TITLE HEADER --- */}
+                <View className="mb-8 pt-2">
+                    <View className="flex-row items-start gap-4">
                         <View className={`p-3 rounded-2xl ${isThought ? 'bg-yellow-500/20' : 'bg-accent/20'}`}>
                             <Ionicons name={isThought ? "bulb" : "book"} size={32} color={isThought ? "#FCD34D" : "#BDE8F5"} />
                         </View>
@@ -201,7 +286,7 @@ export default function LogDetailsScreen({ route, navigation }) {
                             <Text className="text-accent/60 font-bold text-xs uppercase tracking-widest mb-1">
                                 {isThought ? "Deep Thought" : "Journal Entry"}
                             </Text>
-                            <Text className="text-3xl text-white font-matanya leading-9 shadow-black/50 shadow-md">
+                            <Text className="text-3xl text-white font-matanya leading-tight pb-4">
                                 {entry.title || "Untitled Entry"}
                             </Text>
                         </View>
@@ -218,11 +303,12 @@ export default function LogDetailsScreen({ route, navigation }) {
                         </Text>
 
                         {/* --- MEDIA SECTION --- */}
-                        {(entry.media?.length > 0 || entry.audio?.length > 0) && (
+                        {(entry.media?.length > 0 || entry.audio?.length > 0 || entry.videos?.length > 0) && (
                             <View className="border-t border-accent/10 pt-6">
                                 <Text className="text-accent font-bold uppercase tracking-widest mb-4 opacity-70">Attachments</Text>
 
                                 {entry.media?.map((f, i) => <MediaViewer key={`img_${i}`} filename={f} />)}
+                                {entry.videos?.map((f, i) => <VideoPlayer key={`vid_${i}`} filename={f} />)}
                                 {entry.audio?.map((f, i) => <AudioPlayer key={`aud_${i}`} filename={f} />)}
                             </View>
                         )}
