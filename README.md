@@ -1,57 +1,84 @@
-APP NAME: Secure Journal (Raaz)
-VERSION: 1.0 (Android APK)
+# Secure Journal (Raaz)
 
-OVERVIEW:
-A privacy-first, zero-knowledge journaling application that allows users to record daily logs and fleeting thoughts. All data is encrypted on the device before reaching the cloud, ensuring that not even the developers can read the user's entries.
+**Version:** 1.0 (Android APK)
 
---- KEY FEATURES ---
+## Overview
 
-1. AUTHENTICATION & SECURITY
-   - Zero-Knowledge Architecture: The server never sees the user's password or decryption key.
-   - Secure Login: PBKDF2 Hashing used to derive encryption keys from the user's Passkey.
-   - Biometric Unlock: Support for FaceID and Fingerprint to unlock the vault without typing the passkey every time.
-   - Session Management: 
-     - "Logout" button instantly clears the biometric key and session token.
-     - Rate Limiting: Prevents brute-force attacks on the login screen (max 10 attempts/hour).
+Secure Journal (Raaz) is a privacy-first, zero-knowledge journaling application designed to capture daily logs and fleeting thoughts.
 
-2. DUAL-MODE JOURNALING
-   A. Daily Log (The "Diary")
-      - One master entry per day.
-      - Auto-merges new writes into the existing daily entry.
-      - "Stale Draft" Detection: If the user forgets to sync yesterday, the app detects the old draft upon opening and auto-uploads it (or prompts for unlock) before clearing the screen for a new day.
-      - Read-Only Mode: Opens in a locked state to prevent accidental deletion. User must tap "✏️" to edit.
-   
-   B. Thoughts (The "Notes")
-      - Unlimited entries per day.
-      - Separate from the Daily Log.
-      - Custom titles for each thought (e.g., "Business Idea", "Rant").
-      - Auto-clears after sync to allow for the next thought.
+The core philosophy is absolute privacy: all data is encrypted on the device before it ever reaches the cloud. This Zero-Knowledge Architecture ensures that no one—including the developers or cloud providers—can access or read your entries.
 
-3. MEDIA & ATTACHMENTS
-   - Rich Media Support: Users can attach:
-     - Photos (from Gallery)
-     - Voice Notes (In-app Recorder)
-   - Encrypted Media: All images and audio files are encrypted locally (AES-256) before upload. They look like garbage data to anyone without the key.
+---
 
-4. SYNC & CLOUD
-   - Cloud Sync: Securely uploads encrypted text and media to MongoDB (metadata) and Supabase (storage).
-   - Local Drafts: Automatically saves progress to the phone's internal storage. If the internet cuts out, data is safe locally.
-   - Manual Sync: "Save Draft" and "Sync to Cloud" buttons available even when the editor is locked.
+## Key Features
 
-5. ARCHIVES & HISTORY
-   - Calendar/List View: View all past entries sorted by date.
-   - Dual-View List: Visual distinction between "📖 Daily Logs" and "💡 Thoughts" in the history feed.
-   - Secure Decryption: Entries in the list remain encrypted (gibberish) until the user authenticates via Passkey or Biometrics.
+### Authentication & Security
+The application prioritizes user security through a robust, multilayered authentication system.
 
-6. USER EXPERIENCE (UX)
-   - Auto-Lock: The visible editor locks itself after saving or loading to prevent "pocket-dial" edits.
-   - Smart Buttons: Sync/Save buttons remain active even when editing is locked.
-   - Visual Feedback: "Vault Open/Closed" status indicators.
-   - Error Handling: Alerts for wrong passkeys, network issues, or sync failures.
+* **Zero-Knowledge Architecture:** The server never receives or stores the user's password or decryption keys.
+* **Secure Login:** Utilizes PBKDF2 hashing to derive encryption keys directly from the user's Passkey.
+* **Biometric Unlock:** Supports FaceID and Fingerprint authentication for quick access to the vault without repeated manual entry.
+* **Session Management:**
+    * Instant logout capability clears biometric keys and session tokens immediately.
+    * Rate limiting is enforced to prevent brute-force attacks (maximum 10 attempts per hour).
 
---- TECHNICAL STACK ---
-- Frontend: React Native (Expo)
-- Backend: Node.js + Express (Deployed on Render)
-- Database: MongoDB Atlas
-- File Storage: Supabase
-- Security: AES-256 Encryption, Expo SecureStore
+### Dual-Mode Journaling
+Raaz offers two distinct writing modes to cater to different journaling styles.
+
+**1. Daily Log (The Diary)**
+* **Master Entry:** One consolidated entry per day.
+* **Auto-Merge:** New writes are automatically merged into the existing daily entry.
+* **Stale Draft Detection:** Detects unsynced drafts from previous days upon opening. It prompts the user to unlock and auto-uploads the data before clearing the interface for the new day.
+* **Read-Only Mode:** Entries open in a locked state to prevent accidental modifications. Users must manually trigger edit mode.
+
+**2. Thoughts (The Notes)**
+* **Unlimited Entries:** Create as many separate entries as needed per day.
+* **Custom Titles:** Assign specific titles (e.g., "Business Idea", "Rant") for better organization.
+* **Auto-Clear:** The interface automatically clears after syncing to prepare for the next thought.
+
+### Media & Attachments
+Users can enrich their entries with rich media, which receives the same high-level encryption as text.
+
+* **Rich Media Support:** Attach photos from the gallery or record in-app voice notes.
+* **Local Encryption:** All images and audio files are encrypted locally using AES-256 before upload. Unauthorized viewers will only see garbage data.
+
+### Sync & Cloud
+* **Cloud Sync:** Securely uploads encrypted text and media to MongoDB (for metadata) and Supabase (for storage).
+* **Local Drafts:** Progress is automatically saved to internal storage. If the network fails, data remains safe locally.
+* **Manual Sync:** "Save Draft" and "Sync to Cloud" controls remain accessible even when the editor is locked.
+
+### Archives & History
+* **Calendar/List View:** Browse all past entries sorted chronologically.
+* **Dual-View Feed:** Visual distinction between "Daily Logs" and "Thoughts" within the history feed.
+* **Secure Decryption:** Historical entries remain encrypted in the list view until the user authenticates via Passkey or Biometrics.
+
+### User Experience (UX)
+* **Auto-Lock:** The visible editor locks automatically after saving or loading to prevent accidental pocket-dial edits.
+* **Smart Buttons:** Sync and Save actions are decoupled from the edit state, ensuring data can always be pushed to the cloud.
+* **Visual Feedback:** Clear indicators for vault status (Open vs. Closed).
+* **Error Handling:** Comprehensive alerts for incorrect passkeys, network connectivity issues, or synchronization failures.
+
+---
+
+## Technical Architecture
+
+The application is built on a modern stack designed for performance and security.
+
+| Category | Technology |
+| :--- | :--- |
+| **Frontend** | React Native (Expo) |
+| **Backend** | Node.js + Express (Deployed on Render) |
+| **Database** | MongoDB Atlas |
+| **File Storage** | Supabase |
+| **Encryption** | AES-256 |
+| **Key Storage** | Expo SecureStore |
+
+---
+
+## Security Protocol
+
+**Data Encryption Standard**
+All user data is encrypted using **AES-256** (Advanced Encryption Standard). This is a symmetric block cipher chosen to protect sensitive information.
+
+**Key Derivation**
+We utilize **PBKDF2** (Password-Based Key Derivation Function 2) to secure user passkeys. This adds a computational cost to password verification, making brute-force attacks significantly more difficult.
